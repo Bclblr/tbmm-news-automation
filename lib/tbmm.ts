@@ -24,34 +24,34 @@ const categoryPaths = [
 
 function cleanText(value: string) {
   return value
-    .replace(/<script[\\s\\S]*?<\\/script>/gi, " ")
-    .replace(/<style[\\s\\S]*?<\\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
 function meta(html: string, name: string) {
-  const escapedName = name.replace(/[.*+?^\${}()|[\]\\]/g, "\\$&");
+  const escapedName = name.replace(/[.*+?^\${}()|[\]\]/g, "\$&");
   const pattern = new RegExp(
-    `<meta[^>]+(?:property|name)=["']\${escapedName}["'][^>]+content=["']([^"']+)["'][^>]*>`,
+    `<meta[^>]+(?:property|name)=["']${escapedName}["'][^>]+content=["']([^"']+)["'][^>]*>`,
     "i",
   );
   const reversePattern = new RegExp(
-    `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']\${escapedName}["'][^>]*>`,
+    `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escapedName}["'][^>]*>`,
     "i",
   );
   return pattern.exec(html)?.[1]?.trim() ?? reversePattern.exec(html)?.[1]?.trim();
 }
 function extractDate(html: string) {
   const match =
-    html.match(/\\d{4}-\\d{2}-\\d{2}\\s*-?\\s*\\d{2}:\\d{2}/) ??
-    html.match(/\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}/);
-  return match?.[0]?.replace(/\\s*-\\s*/, " ") ?? new Date().toISOString();
+    html.match(/\d{4}-\d{2}-\d{2}\s*-?\s*\d{2}:\d{2}/) ??
+    html.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
+  return match?.[0]?.replace(/\s*-\s*/, " ") ?? new Date().toISOString();
 }
 
 function extractImage(html: string) {
@@ -60,8 +60,8 @@ function extractImage(html: string) {
 
 function extractMainText(html: string) {
   const article =
-    html.match(/<article[^>]*>([\\s\\S]*?)<\\/article>/i)?.[1] ??
-    html.match(/<main[^>]*>([\\s\\S]*?)<\\/main>/i)?.[1] ??
+    html.match(/<article[^>]*>([\s\S]*?)<\/article>/i)?.[1] ??
+    html.match(/<main[^>]*>([\s\S]*?)<\/main>/i)?.[1] ??
     "";
   return cleanText(article).slice(0, 50000);
 }
@@ -114,14 +114,14 @@ export async function fetchTbmmNews(): Promise<TbmmNewsItem[]> {
     if (!response.ok) throw new Error(`TBMM kaynağı alınamadı: ${source.path} (${response.status})`);
 
     const html = await response.text();
-    const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>/gi;
+    const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
     let match: RegExpExecArray | null;
 
     while ((match = linkRegex.exec(html)) !== null) {
       const href = match[1];
       const title = cleanText(match[2]);
       if (!title || title.length < 15 || !href) continue;
-      if (!/\\/Haber\\/Detay\\?Id=/i.test(href)) continue;
+      if (!/\/Haber\/Detay\?Id=/i.test(href)) continue;
 
       const url = new URL(href, TBMM_BASE).toString();
       if (!discovered.has(url)) {
