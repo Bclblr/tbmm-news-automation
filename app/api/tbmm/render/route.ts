@@ -161,8 +161,8 @@ export async function POST(request: Request) {
 </svg>`;
 
     const fontDir = pathModule.join(process.cwd(), "node_modules", "notosans-fontface", "fonts");
-    const regularFont = path.join(fontDir, "NotoSans-Regular.ttf");
-    const boldFont = path.join(fontDir, "NotoSans-Bold.ttf");
+    const regularFont = pathModule.join(fontDir, "NotoSans-Regular.ttf");
+    const boldFont = pathModule.join(fontDir, "NotoSans-Bold.ttf");
 
     const renderer = new Resvg(svg, {
       fitTo: { mode: "original" },
