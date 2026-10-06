@@ -7,25 +7,61 @@ function cleanText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function buildHeadline(title: string, category: string) {
-  const normalized = cleanText(title);
-  if (!normalized) return "TBMM'den yeni gelişme";
-  if (normalized.length <= 90) return normalized;
-  return normalized.slice(0, 87).replace(/[,:;.!?\s]+$/, "") + "…";
+function buildHeadline(title: string, summary: string, category: string) {
+  const cleanTitleText = cleanText(title);
+  const cleanSummary = cleanText(summary);
+
+  if (!cleanTitleText && !cleanSummary) return "TBMM'den yeni gelişme";
+
+  // Önceliği haber özetine veriyoruz. Böylece görsel başlığı,
+  // TBMM'nin ham başlığını doğrudan kopyalamak yerine haberin ana fikrini öne çıkarır.
+  const source = cleanSummary || cleanTitleText;
+  const sentences = source
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.replace(/^[•–—-]\s*/, "").trim())
+    .filter(Boolean);
+
+  let headline = sentences[0] || source;
+
+  // Özet birden fazla cümleyse ilk cümleden haber başlığına uygun kısa bir ifade çıkar.
+  headline = headline
+    .replace(/^Türkiye Büyük Millet Meclisi(?:'nde|'de)?\s*/i, "")
+    .replace(/^TBMM(?:'de|'nin|'den)?\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (headline.length < 24 && sentences[1]) {
+    headline = `${headline}: ${sentences[1]}`;
+  }
+
+  headline = headline
+    .replace(/[.!?]+$/, "")
+    .trim();
+
+  if (!headline) headline = category ? `${category} gündeminde yeni gelişme` : "Meclis gündeminde yeni gelişme";
+
+  if (headline.length > 90) {
+    headline = headline.slice(0, 87).replace(/[,:;.!?\s]+$/, "") + "…";
+  }
+
+  return headline;
 }
 
 function buildSocialText(title: string, summary: string, category: string) {
   const cleanTitle = cleanText(title);
   const cleanSummary = cleanText(summary);
+
+  // Görselin alt metni doğrudan haber özetinden oluşur; genel/tekrarlayan tanıtım metni kullanılmaz.
+  const body = cleanSummary || cleanTitle || "TBMM gündeminden güncel gelişme.";
+  const clipped = body.length > 420
+    ? body.slice(0, 417).replace(/[,:;.!?\s]+$/, "") + "…"
+    : body;
+
   const prefix = category ? `📌 ${category}` : "📌 TBMM";
-  const body = cleanSummary || cleanTitle;
-  const clipped = body.length > 420 ? body.slice(0, 417).replace(/[,:;.!?\s]+$/, "") + "…" : body;
 
   return `${prefix}
 
 ${clipped}
-
-🔎 Detaylar için TBMM'nin resmî haber kaynağını inceleyebilirsiniz.
 
 #TBMM #TürkiyeBüyükMilletMeclisi`;
 }
@@ -48,7 +84,7 @@ export async function POST(request: Request) {
     let generated = 0;
 
     for (const item of news) {
-      const generatedTitle = buildHeadline(item.title, item.category);
+      const generatedTitle = buildHeadline(item.title, item.summary, item.category);
       const generatedText = buildSocialText(item.title, item.summary, item.category);
 
       const { error: updateError } = await supabaseAdmin
