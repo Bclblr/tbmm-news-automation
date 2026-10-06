@@ -40,6 +40,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [generating, setGenerating] = useState(false);
   const [renderingId, setRenderingId] = useState<string | null>(null);
+  const [renderingAll, setRenderingAll] = useState(false);
 
   async function loadNews() {
     const response = await fetch("/api/tbmm/news", { cache: "no-store" });
@@ -80,6 +81,27 @@ export default function Home() {
       setError(err instanceof Error ? err.message : "Görsel oluşturulamadı.");
     } finally {
       setRenderingId(null);
+    }
+  }
+
+  async function renderAllImages() {
+    setRenderingAll(true);
+    setError("");
+    try {
+      const response = await fetch("/api/tbmm/render-all", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Görseller yenilenemedi.");
+      await loadNews();
+      if (data.errors?.length) {
+        setError(`${data.rendered}/${data.total} görsel yenilendi. Bazı görseller oluşturulamadı.`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Görseller yenilenemedi.");
+    } finally {
+      setRenderingAll(false);
     }
   }
 
@@ -129,9 +151,12 @@ export default function Home() {
           <p className="muted">TBMM'nin Meclis, Yasama, Komisyon, Milletvekilleri ve Meclis Başkanı haber listelerini kontrol eder.</p>
         </div>
         <div className="actions">
-          <button onClick={checkNews} disabled={loading || generating}>{loading ? "Kontrol ediliyor..." : "Haberleri Kontrol Et"}</button>
-          <button className="secondary-button" onClick={generateContent} disabled={generating || loading}>
+          <button onClick={checkNews} disabled={loading || generating || renderingAll}>{loading ? "Kontrol ediliyor..." : "Haberleri Kontrol Et"}</button>
+          <button className="secondary-button" onClick={generateContent} disabled={generating || loading || renderingAll}>
             {generating ? "İçerik hazırlanıyor..." : "İçerik Üret"}
+          </button>
+          <button className="secondary-button" onClick={renderAllImages} disabled={renderingAll || generating || loading}>
+            {renderingAll ? "Görseller yenileniyor..." : "Tüm Görselleri Yenile"}
           </button>
         </div>
       </section>
@@ -159,7 +184,7 @@ export default function Home() {
                   <small>{formatDate(item.published_at)} · {item.status}</small>
                 </div>
                 <div className="news-actions">
-                  <button className="mini-button" onClick={() => renderImage(item.id)} disabled={renderingId === item.id || item.status !== "ready"}>
+                  <button className="mini-button" onClick={() => renderImage(item.id)} disabled={renderingId === item.id || renderingAll || item.status !== "ready"}>
                     {renderingId === item.id ? "PNG hazırlanıyor..." : item.generated_image_url ? "PNG'yi yenile" : "1080×1080 PNG"}
                   </button>
                   {item.generated_image_url && <a href={item.generated_image_url} target="_blank" rel="noreferrer">Görseli aç →</a>}
