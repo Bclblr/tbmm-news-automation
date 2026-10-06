@@ -162,21 +162,46 @@ SADECE şu JSON nesnesini döndür:
 
 function fallback(title: string, summary: string, content: string): AiResult {
   const cleanTitle = cleanText(title);
-  const sourceParagraph =
-    content
-      .split(/\n\n+/)
-      .map((part) => cleanText(part))
-      .find((part) => part.length >= 60) || cleanText(summary);
+  const source = cleanText(summary || content);
 
-  let fallbackSummary = sourceParagraph;
+  // Never cut a legal/news sentence at an arbitrary character count.
+  // TBMM releases can contain a single very long legal sentence, so the
+  // fallback turns the key clauses into short, complete sentences.
+  let fallbackSummary = source;
+
   if (fallbackSummary.length > 420) {
-    const sentences = fallbackSummary.match(/[^.!?]+[.!?]+/g) || [];
-    const complete = sentences.join(" ").trim();
-    if (complete && complete.length >= 160 && complete.length <= 420) {
-      fallbackSummary = complete;
+    const normalized = fallbackSummary
+      .replace(/\bTeklifle,\s*/i, "")
+      .replace(/\bTeklif ile,\s*/i, "")
+      .replace(/\bmüteakip,\s*/gi, " sonrasında ")
+      .replace(/\bve bu tespitin teyidine dair\s+/gi, " ve ilgili kararın ")
+      .replace(/\bResmi Gazete'de\s+/gi, "Resmî Gazete'de ");
+
+    const clauses = normalized
+      .split(/(?<=[,;:])\s+/)
+      .map((part) => part.trim().replace(/[,;:]$/, ""))
+      .filter((part) => part.length >= 45);
+
+    const selected: string[] = [];
+    let total = 0;
+
+    for (const clause of clauses) {
+      const sentence = clause.charAt(0).toLocaleUpperCase("tr-TR") + clause.slice(1);
+      const candidate = selected.length
+        ? selected.join(" ") + ". " + sentence + "."
+        : sentence + ".";
+      if (candidate.length <= 400) {
+        selected.push(sentence);
+        total = candidate.length;
+      }
+      if (selected.length >= 2) break;
+    }
+
+    if (selected.length >= 2 && total >= 160) {
+      fallbackSummary = selected.map((part) => part + ".").join(" ");
     } else {
-      const wordSafe = fallbackSummary.slice(0, 420).replace(/\\s+\\S*$/, "").trim();
-      fallbackSummary = wordSafe.replace(/[,;:]\\s*$/, "").trim();
+      const firstComplete = source.match(/^[\s\S]{120,400}(?:[.!?]|$)/)?.[0]?.trim();
+      fallbackSummary = firstComplete || "TBMM gündemindeki düzenlemeye ilişkin yeni gelişme paylaşıldı.";
     }
   }
 
@@ -185,8 +210,7 @@ function fallback(title: string, summary: string, content: string): AiResult {
       cleanTitle && cleanTitle.length <= 90
         ? cleanTitle
         : "TBMM gündeminden yeni gelişme",
-    summary:
-      fallbackSummary || "TBMM gündeminden güncel bir gelişme paylaşıldı.",
+    summary: fallbackSummary || "TBMM gündeminden güncel bir gelişme paylaşıldı.",
   };
 }
 
