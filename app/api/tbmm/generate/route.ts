@@ -219,7 +219,7 @@ export async function POST(request: Request) {
     const { data: news, error } = await supabaseAdmin
       .from("tbmm_news")
       .select("id, title, summary, content, category, status")
-      .in("status", ["new", "ready"])
+      .eq("status", "new")
       .order("published_at", { ascending: false })
       .limit(50);
 
