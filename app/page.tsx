@@ -215,9 +215,9 @@ export default function Home() {
                     </div>
 
                     <span className={`status-badge status-${item.status}`}>
-                      {item.status === "ready" ? "Yayına hazır" : item.status === "published" ? "Yayınlandı" : "Yeni"}
+                      {item.status === "ready" ? "Yayına hazır" : item.status === "published" ? "Paylaşıldı" : "Yeni"}
                     </span>
-                    <small>{formatDate(item.published_at)} · {item.status}</small>
+                    <small>{formatDate(item.published_at)} · {item.status === "published" ? "Instagram + Facebook" : item.status}</small>
                   </div>
 
                   <div className="news-actions">
