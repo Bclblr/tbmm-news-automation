@@ -184,7 +184,7 @@ export async function POST(request: Request) {
     if (uploadError) throw new Error(`Görsel yüklenemedi: ${uploadError.message}`);
 
     const { data: publicData } = supabaseAdmin.storage.from("social-images").getPublicUrl(path);
-    const imageUrl = `${publicData.publicUrl}?v=${Date.now()}`;
+    const imageUrl = `${publicData.publicUrl}?v=${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const { error: updateError } = await supabaseAdmin
       .from("tbmm_news")
