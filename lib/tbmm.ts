@@ -20,15 +20,41 @@ const categoryPaths = [
   { category: "milletvekilleri" as const, path: "/meclis-haber/milletvekili" },
 ];
 
-function cleanText(value: string) {
+function decodeHtmlEntities(value: string) {
+  const namedEntities: Record<string, string> = {
+    nbsp: " ",
+    amp: "&",
+    quot: '"',
+    apos: "'",
+    lt: "<",
+    gt: ">",
+  };
+
   return value
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi, (entity, body: string) => {
+      const lower = body.toLowerCase();
+
+      if (lower.startsWith("#x")) {
+        const codePoint = Number.parseInt(lower.slice(2), 16);
+        return Number.isNaN(codePoint) ? entity : String.fromCodePoint(codePoint);
+      }
+
+      if (lower.startsWith("#")) {
+        const codePoint = Number.parseInt(lower.slice(1), 10);
+        return Number.isNaN(codePoint) ? entity : String.fromCodePoint(codePoint);
+      }
+
+      return namedEntities[lower] ?? entity;
+    });
+}
+
+function cleanText(value: string) {
+  return decodeHtmlEntities(
+    value
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
 }
 
 function getMeta(html: string, name: string) {
@@ -39,7 +65,7 @@ function getMeta(html: string, name: string) {
     const nameMatch = tag.match(/(?:property|name)=["']([^"']+)["']/i);
     const contentMatch = tag.match(/content=["']([^"']*)["']/i);
     if (nameMatch?.[1]?.toLowerCase() === wanted && contentMatch) {
-      return contentMatch[1].trim();
+      return decodeHtmlEntities(contentMatch[1].trim());
     }
   }
 
