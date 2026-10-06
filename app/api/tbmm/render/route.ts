@@ -54,40 +54,64 @@ export async function POST(request: Request) {
 
     if (error || !item) return NextResponse.json({ ok: false, error: "Haber bulunamadı." }, { status: 404 });
 
-    const titleLines = wrapText(item.generated_title || item.title, 30, 4);
+    const titleLines = wrapText(item.generated_title || item.title, 28, 4);
     const text = (item.generated_text || "").replace(/^📌[^\n]*\n\n/, "").split("\n\n")[0];
-    const textLines = wrapText(text, 55, 4);
+    const textLines = wrapText(text, 52, 3);
     const date = item.published_at ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(item.published_at)) : "";
     const imageData = await imageAsDataUri(item.image_url);
 
     const image = imageData
       ? `<image href="${imageData}" x="0" y="0" width="1080" height="1080" preserveAspectRatio="xMidYMid slice"/>`
-      : "";
+      : `<rect width="1080" height="1080" fill="#171717"/>`;
 
-    const titleSvg = titleLines.map((line, index) => `<text x="80" y="${625 + index * 70}">${escapeXml(line)}</text>`).join("");
-    const textSvg = textLines.map((line, index) => `<text x="80" y="${930 + index * 34}">${escapeXml(line)}</text>`).join("");
+    const titleSvg = titleLines
+      .map((line, index) => `<text x="72" y="${690 + index * 64}">${escapeXml(line)}</text>`)
+      .join("");
+    const textSvg = textLines
+      .map((line, index) => `<text x="72" y="${925 + index * 31}">${escapeXml(line)}</text>`)
+      .join("");
+
+    const category = (item.category || "TBMM").toUpperCase();
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
   <defs>
-    <linearGradient id="overlay" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#000000" stop-opacity="0.05"/>
-      <stop offset="0.55" stop-color="#000000" stop-opacity="0.42"/>
-      <stop offset="1" stop-color="#000000" stop-opacity="0.94"/>
+    <linearGradient id="hero" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.10"/>
+      <stop offset="0.38" stop-color="#000000" stop-opacity="0.12"/>
+      <stop offset="0.72" stop-color="#000000" stop-opacity="0.70"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.96"/>
     </linearGradient>
-    <filter id="shadow"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.55"/></filter>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6d28d9"/>
+      <stop offset="1" stop-color="#9333ea"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="5" stdDeviation="9" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
   </defs>
-  <rect width="1080" height="1080" fill="#18181b"/>
+
   ${image}
-  <rect width="1080" height="1080" fill="url(#overlay)"/>
-  <rect x="70" y="70" width="940" height="54" rx="27" fill="#111113" fill-opacity="0.86"/>
-  <text x="100" y="105" fill="#ffffff" font-family="Arial, sans-serif" font-size="25" font-weight="700">TBMM HABER OTOMASYONU</text>
-  <text x="80" y="565" fill="#d4d4d8" font-family="Arial, sans-serif" font-size="24" font-weight="700">${escapeXml((item.category || "TBMM").toUpperCase())}</text>
-  <g filter="url(#shadow)" fill="#ffffff" font-family="Arial, sans-serif" font-weight="800" font-size="58">${titleSvg}</g>
-  <g fill="#f4f4f5" font-family="Arial, sans-serif" font-size="26">${textSvg}</g>
-  <text x="80" y="1040" fill="#d4d4d8" font-family="Arial, sans-serif" font-size="21">${escapeXml(date)}</text>
-  <text x="1000" y="1040" text-anchor="end" fill="#d4d4d8" font-family="Arial, sans-serif" font-size="21">TBMM</text>
-</svg>`;
+  <rect width="1080" height="1080" fill="url(#hero)"/>
+
+  <rect x="56" y="52" width="310" height="72" rx="36" fill="url(#brand)"/>
+  <circle cx="94" cy="88" r="19" fill="#ffffff" fill-opacity="0.96"/>
+  <circle cx="94" cy="88" r="7" fill="#6d28d9"/>
+  <text x="126" y="97" fill="#ffffff" font-family="Arial, sans-serif" font-size="29" font-weight="800">HALK LOCASI</text>
+
+  <rect x="56" y="560" width="${Math.min(350, Math.max(130, category.length * 16 + 58))}" height="46" rx="23" fill="#ffffff" fill-opacity="0.92"/>
+  <text x="80" y="591" fill="#18181b" font-family="Arial, sans-serif" font-size="20" font-weight="800">${escapeXml(category)}</text>
+
+  <g filter="url(#shadow)" fill="#ffffff" font-family="Arial, sans-serif" font-weight="800" font-size="55">${titleSvg}</g>
+
+  <rect x="72" y="855" width="92" height="6" rx="3" fill="#a855f7"/>
+
+  <g fill="#f4f4f5" font-family="Arial, sans-serif" font-size="25" font-weight="500">${textSvg}</g>
+
+  <rect x="56" y="1010" width="968" height="1" fill="#ffffff" fill-opacity="0.28"/>
+  <text x="56" y="1050" fill="#e4e4e7" font-family="Arial, sans-serif" font-size="19" font-weight="600">HALK LOCASI</text>
+  <text x="1024" y="1050" text-anchor="end" fill="#d4d4d8" font-family="Arial, sans-serif" font-size="18">${escapeXml(date)} · TBMM</text>
+</svg>`
 
     const png = await sharp(Buffer.from(svg)).png().toBuffer();
     const path = `tbmm/${id}.png`;
