@@ -4,10 +4,16 @@ import { supabaseAdmin } from "../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const FONT = "DejaVu Sans, sans-serif";
+const FONT = "DejaVu Sans";
 
 function escapeXml(value: string) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+  return value
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 function wrapText(value: string, maxChars: number, maxLines: number) {
@@ -43,14 +49,7 @@ function titleFontSize(lineCount: number, longestLine: number) {
 }
 
 function categoryLabel(value: string) {
-  const labels: Record<string, string> = {
-    "MECLİS BAŞKANI": "MECLİS BAŞKANI",
-    "MECLİS": "MECLİS",
-    "YASAMA": "YASAMA",
-    "KOMİSYON": "KOMİSYON",
-    "MİLLETVEKİLİ": "MİLLETVEKİLİ",
-  };
-  return labels[value.toUpperCase()] ?? value.toUpperCase();
+  return value.toLocaleUpperCase("tr-TR");
 }
 
 async function imageAsDataUri(url: string | null) {
@@ -84,7 +83,10 @@ export async function POST(request: Request) {
     const longestTitleLine = Math.max(...titleLines.map((line) => line.length), 0);
     const titleSize = titleFontSize(titleLines.length, longestTitleLine);
 
-    const text = (item.generated_text || "").replace(/^📌[^\n]*\n\n/, "").split("\n\n")[0];
+    const text = (item.generated_text || "")
+      .replace(/^📌[^\n]*\n\n/, "")
+      .split("\n\n")[0];
+
     const textLines = wrapText(text, 58, 2);
     const date = item.published_at
       ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(item.published_at))
@@ -130,41 +132,34 @@ export async function POST(request: Request) {
   ${image}
   <rect width="1080" height="1080" fill="url(#bottomShade)"/>
 
-  <!-- top brand -->
   <rect x="48" y="44" width="350" height="82" rx="41" fill="#09070f" fill-opacity="0.82"/>
   <rect x="48" y="44" width="8" height="82" rx="4" fill="#a855f7"/>
   <circle cx="100" cy="85" r="25" fill="#ffffff"/>
   <circle cx="100" cy="85" r="10" fill="#7c3aed"/>
   <text x="140" y="96" fill="#ffffff" font-family="${FONT}" font-size="29" font-weight="700" letter-spacing="0.5">HALK LOCASI</text>
 
-  <!-- visual identity mark -->
   <circle cx="994" cy="85" r="38" fill="#09070f" fill-opacity="0.78" stroke="#c084fc" stroke-width="2"/>
   <text x="994" y="95" text-anchor="middle" fill="#ffffff" font-family="${FONT}" font-size="23" font-weight="700">HL</text>
 
-  <!-- category -->
   <rect x="56" y="526" width="${categoryWidth}" height="46" rx="23" fill="url(#purple)"/>
   <text x="80" y="557" fill="#ffffff" font-family="${FONT}" font-size="18" font-weight="700" letter-spacing="0.5">${escapeXml(category)}</text>
 
-  <!-- headline -->
-  <g filter="url(#softShadow)" fill="#ffffff" font-family="${FONT}" font-weight="800" font-size="${titleSize}">
+  <g filter="url(#softShadow)" fill="#ffffff" font-family="${FONT}" font-weight="700" font-size="${titleSize}">
     ${titleSvg}
   </g>
 
-  <!-- accent rule -->
   <rect x="72" y="${dividerY}" width="112" height="7" rx="3.5" fill="#c084fc"/>
 
-  <!-- summary -->
   <g fill="#f5f3f7" font-family="${FONT}" font-size="24" font-weight="400">
     ${textSvg}
   </g>
 
-  <!-- footer -->
   <rect x="56" y="1004" width="968" height="1" fill="#ffffff" fill-opacity="0.24"/>
   <text x="56" y="1048" fill="#ffffff" font-family="${FONT}" font-size="18" font-weight="700" letter-spacing="1">HALK LOCASI</text>
   <text x="1024" y="1048" text-anchor="end" fill="#d8d3df" font-family="${FONT}" font-size="17">${escapeXml(date)}  •  TBMM</text>
 </svg>`;
 
-    const png = await sharp(Buffer.from(svg)).png().toBuffer();
+    const png = await sharp(Buffer.from(svg, "utf8")).png().toBuffer();
     const path = `tbmm/${id}.png`;
 
     const { error: uploadError } = await supabaseAdmin.storage
