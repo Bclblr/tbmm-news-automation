@@ -13,82 +13,58 @@ function cleanText(value: string) {
     .trim();
 }
 
-function buildHeadline(title: string, summary: string, category: string) {
-  const cleanTitleText = cleanText(title);
-  const cleanSummary = cleanText(summary);
+type AiResult = { headline: string; summary: string };
 
-  if (!cleanTitleText && !cleanSummary) return "TBMM'den yeni gelişme";
+async function generateWithGemini(title: string, summary: string, content: string, category: string): Promise<AiResult> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return fallback(title, summary);
+  const model = process.env.GEMINI_MODEL || "gemini-3.7-flash";
+  const prompt = `Türkçe haber editörüsün. Aşağıdaki TBMM haberini sosyal medya için yeniden yaz.
 
-  const source = cleanSummary || cleanTitleText;
-  const sentences = source
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.replace(/^[•–—-]\s*/, "").trim())
-    .filter(Boolean);
+KURALLAR:
+- Orijinal başlığı kopyalama; haberi anlayıp yeni, kısa bir başlık yaz.
+- Başlık 45-80 karakter olsun.
+- 2-3 cümlelik 180-420 karakterlik özet yaz.
+- Sadece kaynakta bulunan bilgileri kullan, bilgi uydurma.
+- İsim, parti, kurum, tarih ve sayıları koru.
+- "Türkiye Büyük Millet Meclisi Resmi İnternet Sitesi", "Resmi İnternet Sitesi", "Detaylar" ifadelerini kullanma.
+- Gazeteci dili kullan.
+- Yalnızca JSON döndür: {"headline":"...","summary":"..."}
 
-  let headline = sentences[0] || source;
+KATEGORİ: ${category}
+ORİJİNAL BAŞLIK: ${title}
+MEVCUT ÖZET: ${summary}
+HABER İÇERİĞİ:
+${content.slice(0, 14000)}`;
 
-  headline = headline
-    .replace(/^Türkiye Büyük Millet Meclisi(?:'nde|'de|'nin|'den)?\s*/i, "")
-    .replace(/^TBMM(?:'de|'nin|'den)?\s*/i, "")
-    .replace(/^Meclis(?:'te|'de|'in|'ten)?\s*/i, "")
-    .replace(/^\(?[^)]{0,60}\)?\s*(?:açıklama yaptı|açıklamasında|ifade etti|belirtti|söyledi)[:,]?\s*/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const clauses = headline
-    .split(/[,;:]/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (headline.length > 78 && clauses.length > 1) {
-    headline = clauses[0];
-  }
-
-  if (headline.length > 78) {
-    const words = headline.split(/\s+/);
-    headline = words.slice(0, 11).join(" ");
-  }
-
-  headline = headline.replace(/[,:;.!?]+$/, "").trim();
-
-  if (headline.length < 20 && cleanTitleText && cleanTitleText !== headline) {
-    const titleWords = cleanTitleText.replace(/\s+/g, " ").trim().split(" ");
-    headline = titleWords.slice(0, 10).join(" ");
-  }
-
-  if (!headline) headline = category ? category + " gündeminde yeni gelişme" : "Meclis gündeminde yeni gelişme";
-
-  if (headline.length > 78) {
-    headline = headline.slice(0, 75).replace(/[,:;.!?\s]+$/, "") + "…";
-  }
-
-  return headline;
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.25, responseMimeType: "application/json" } }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Gemini API ${response.status}`);
+  const data = await response.json();
+  const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!raw) throw new Error("Gemini boş yanıt döndürdü.");
+  const parsed = JSON.parse(raw) as Partial<AiResult>;
+  const headline = String(parsed.headline || "").replace(/\s+/g, " ").trim();
+  const aiSummary = String(parsed.summary || "").replace(/\s+/g, " ").trim();
+  if (!headline || !aiSummary) throw new Error("Gemini geçerli içerik üretmedi.");
+  return { headline, summary: aiSummary };
 }
 
-function buildSocialText(title: string, summary: string, category: string) {
-  const cleanTitle = cleanText(title);
-  const cleanSummary = cleanText(summary);
-
-  // Görselin alt metni doğrudan haber özetinden oluşur; genel/tekrarlayan tanıtım metni kullanılmaz.
-  const body = cleanSummary || "TBMM gündeminden güncel gelişme.";
-  const clipped = body.length > 420
-    ? body.slice(0, 417).replace(/[,:;.!?\s]+$/, "") + "…"
-    : body;
-
-  const prefix = category ? `📌 ${category}` : "📌 TBMM";
-
-  return `${prefix}
-
-${clipped}
-
-#TBMM #TürkiyeBüyükMilletMeclisi`;
+function fallback(title: string, summary: string): AiResult {
+  return {
+    headline: title.replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "").trim() || "TBMM gündeminden yeni gelişme",
+    summary: summary.replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "").trim() || "TBMM gündeminden güncel gelişme.",
+  };
 }
 
 export async function POST(request: Request) {
   try {
     const { data: news, error } = await supabaseAdmin
       .from("tbmm_news")
-      .select("id, title, summary, category, status")
+      .select("id, title, summary, content, category, status")
       .in("status", ["new", "ready"])
       .order("published_at", { ascending: false })
       .limit(50);
@@ -102,8 +78,18 @@ export async function POST(request: Request) {
     let generated = 0;
 
     for (const item of news) {
-      const generatedTitle = buildHeadline(item.title, item.summary, item.category);
-      const generatedText = buildSocialText(item.title, item.summary, item.category);
+      let result: AiResult;
+      try {
+        result = await generateWithGemini(item.title, item.summary, item.content || "", item.category);
+      } catch {
+        result = fallback(item.title, item.summary);
+      }
+      const generatedTitle = result.headline;
+      const generatedText = `📌 ${item.category || "TBMM"}
+
+${result.summary}
+
+#TBMM #TürkiyeBüyükMilletMeclisi`;
 
       const { error: updateError } = await supabaseAdmin
         .from("tbmm_news")
