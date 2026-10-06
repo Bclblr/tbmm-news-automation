@@ -210,7 +210,7 @@ export default function Home() {
                         BAŞLIK VE METİN NASIL HAZIRLANDI?
                       </div>
                       <p className="muted" style={{ margin: 0, lineHeight: 1.55 }}>
-                        Önce TBMM'nin resmî haber sayfasından başlık, haber paragrafları, tarih ve görsel alınır. Sayfadaki gereksiz metinler temizlenir. Ardından Gemini 3.7 Flash yalnızca bu kaynak içeriğine dayanarak yeni bir 45–80 karakterlik başlık ve 2–3 cümlelik 180–420 karakterlik özet üretir. Son aşamada başlık ve özet 1080×1080 Halk Locası görsel şablonuna yerleştirilir.
+                        Önce TBMM'nin resmî haber sayfasından başlık, haber paragrafları, tarih ve görsel alınır. Sayfadaki gereksiz metinler temizlenir. Ardından Gemini yalnızca bu kaynak içeriğine dayanarak aynı ana gelişmeye odaklanan yeni bir 35–75 karakterlik başlık ve 2–3 cümlelik 220–420 karakterlik haber metni üretir; kaynak cümlelerini birebir kopyalamaz. Son aşamada başlık ve özet 1080×1080 Halk Locası görsel şablonuna yerleştirilir.
                       </p>
                     </div>
 
