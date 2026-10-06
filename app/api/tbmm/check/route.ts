@@ -34,18 +34,16 @@ export async function GET() {
 
     const { data, error } = await supabaseAdmin
       .from("tbmm_news")
-      .upsert(rows, { onConflict: "source_url", ignoreDuplicates: true })
+      .upsert(rows, { onConflict: "source_url", ignoreDuplicates: false })
       .select("id, source_url");
 
     if (error) throw new Error(`Supabase kayıt hatası: ${error.message}`);
 
-    const inserted = data?.length ?? 0;
-
     return NextResponse.json({
       ok: true,
       fetched: news.length,
-      inserted,
-      skipped: news.length - inserted,
+      inserted: data?.length ?? 0,
+      skipped: 0,
       items: news,
       checkedAt: new Date().toISOString(),
     });
