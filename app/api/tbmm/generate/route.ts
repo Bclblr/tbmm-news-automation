@@ -6,11 +6,48 @@ export const dynamic = "force-dynamic";
 function cleanText(value: string) {
   return value
     .replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "")
+    .replace(/Resmi İnternet Sitesi/gi, "")
     .replace(/🔎\\s*Detaylar[^\\n]*/gi, "")
     .replace(/#TBMM[^\\n]*/gi, "")
     .replace(/^📌[^\\n]*\\n?/i, "")
     .replace(/\\s+/g, " ")
     .trim();
+}
+
+function isBoilerplate(value: string) {
+  return /Türkiye Büyük Millet Meclisi Resmi İnternet Sites|Resmi İnternet Sitesi|Detaylar/i.test(value);
+}
+
+function wordOverlapRatio(a: string, b: string) {
+  const normalize = (value: string) =>
+    cleanText(value)
+      .toLocaleLowerCase("tr-TR")
+      .replace(/[^a-zçğıöşü0-9\\s]/gi, " ")
+      .split(/\\s+/)
+      .filter((word) => word.length >= 4);
+
+  const sourceWords = new Set(normalize(a));
+  const candidateWords = normalize(b);
+  if (!candidateWords.length || !sourceWords.size) return 0;
+
+  const overlap = candidateWords.filter((word) => sourceWords.has(word)).length;
+  return overlap / candidateWords.length;
+}
+
+function validateAiResult(result: AiResult, originalTitle: string, sourceText: string) {
+  const headline = cleanText(result.headline);
+  const summary = cleanText(result.summary);
+
+  if (!headline || !summary) throw new Error("Gemini geçerli içerik üretmedi.");
+  if (isBoilerplate(headline) || isBoilerplate(summary)) throw new Error("Gemini resmi site kalıntısı üretti.");
+  if (headline === cleanText(originalTitle)) throw new Error("Gemini orijinal başlığı kopyaladı.");
+  if (headline.length < 25 || headline.length > 90) throw new Error("Gemini başlık uzunluğu uygun değil.");
+  if (summary.length < 160 || summary.length > 500) throw new Error("Gemini metin uzunluğu uygun değil.");
+
+  const overlap = wordOverlapRatio(sourceText, summary);
+  if (overlap > 0.82) throw new Error("Gemini kaynak metni fazla doğrudan kopyaladı.");
+
+  return { headline, summary };
 }
 
 type AiResult = { headline: string; summary: string };
