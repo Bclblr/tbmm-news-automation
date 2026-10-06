@@ -109,7 +109,7 @@ export async function POST(request: Request) {
         instagram_media_id: publishData.id,
         instagram_published_at: now,
         publish_error: null,
-        status: "published",
+        status: "ready",
         updated_at: now,
       })
       .eq("id", id);
