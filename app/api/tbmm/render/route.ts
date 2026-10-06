@@ -41,7 +41,7 @@ function fitSummaryText(value: string, startY: number) {
   const availableHeight = Math.max(120, bottomY - startY);
   const clean = value.trim();
 
-  for (let fontSize = 30; fontSize >= 16; fontSize -= 1) {
+  for (let fontSize = 30; fontSize >= 20; fontSize -= 1) {
     const lineHeight = Math.round(fontSize * 1.35);
     const maxLines = Math.max(1, Math.floor(availableHeight / lineHeight));
     const maxChars = Math.max(28, Math.floor(68 * (27 / fontSize)));
@@ -49,7 +49,7 @@ function fitSummaryText(value: string, startY: number) {
     if (lines.length <= maxLines) return { fontSize, lineHeight, lines };
   }
 
-  const fontSize = 16;
+  const fontSize = 20;
   const lineHeight = Math.round(fontSize * 1.35);
   const maxChars = Math.max(28, Math.floor(68 * (27 / fontSize)));
   return { fontSize, lineHeight, lines: wrapText(clean, maxChars) };
