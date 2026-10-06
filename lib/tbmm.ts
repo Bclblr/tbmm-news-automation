@@ -85,6 +85,18 @@ function extractImage(html: string) {
 }
 
 function extractMainText(html: string) {
+  const paragraphs = Array.from(
+    html.matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/gi),
+  )
+    .map((match) => cleanText(match[1]))
+    .filter((text) =>
+      text.length >= 35 &&
+      !/Türkiye Büyük Millet Meclisi Resmi İnternet Sitesi/i.test(text),
+    );
+
+  const unique = Array.from(new Set(paragraphs));
+  if (unique.length) return unique.join("\n\n").slice(0, 50000);
+
   const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i)?.[1];
   const main = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i)?.[1];
   return cleanText(article ?? main ?? "").slice(0, 50000);
