@@ -30,30 +30,23 @@ function decodeHtmlEntities(value: string) {
     gt: ">",
   };
 
-  return value
-    .replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi, (entity, body: string) => {
-      const lower = body.toLowerCase();
-
-      if (lower.startsWith("#x")) {
-        const codePoint = Number.parseInt(lower.slice(2), 16);
-        return Number.isNaN(codePoint) ? entity : String.fromCodePoint(codePoint);
-      }
-
-      if (lower.startsWith("#")) {
-        const codePoint = Number.parseInt(lower.slice(1), 10);
-        return Number.isNaN(codePoint) ? entity : String.fromCodePoint(codePoint);
-      }
-
-      return namedEntities[lower] ?? entity;
-    });
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi, (entity, body: string) => {
+    const lower = body.toLowerCase();
+    if (lower.startsWith("#x")) {
+      const codePoint = Number.parseInt(lower.slice(2), 16);
+      return Number.isNaN(codePoint) ? entity : String.fromCodePoint(codePoint);
+    }
+    if (lower.startsWith("#")) {
+      const codePoint = Number.parseInt(lower.slice(1), 10);
+      return Number.isNaN(codePoint) ? entity : String.fromCodePoint(codePoint);
+    }
+    return namedEntities[lower] ?? entity;
+  });
 }
 
 function cleanText(value: string) {
   return decodeHtmlEntities(
-    value
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim(),
+    value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
   );
 }
 
@@ -129,20 +122,29 @@ async function fetchDetail(
 
   const html = await response.text();
   const title = getMeta(html, "og:title") ?? item.title;
-  const description =
-    getMeta(html, "description") ?? getMeta(html, "og:description") ?? "";
-  const content = extractMainText(html) || description;
-  const publishedAt =
-    getMeta(html, "article:published_time") ?? extractDate(html);
+  const description = getMeta(html, "description") ?? getMeta(html, "og:description") ?? "";
+  const extractedContent = extractMainText(html);
+  const content = extractedContent || cleanText(description);
+
+  const usableDescription = cleanText(description)
+    .replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "")
+    .trim();
+
+  const firstParagraph =
+    content
+      .split(/\n\n+/)
+      .map((part) => cleanText(part))
+      .find((part) => part.length >= 35) ?? "";
+
+  const summary = (usableDescription.length >= 35 ? usableDescription : firstParagraph).slice(0, 500);
+  const publishedAt = getMeta(html, "article:published_time") ?? extractDate(html);
   const imageUrl = extractImage(html);
-  const contentHash = simpleHash(
-    [title, publishedAt, content, item.url].join("|"),
-  );
+  const contentHash = simpleHash([title, publishedAt, content, item.url].join("|"));
 
   return {
     ...item,
     title: cleanText(title),
-    summary: cleanText(description).slice(0, 500),
+    summary,
     content,
     publishedAt,
     imageUrl,
