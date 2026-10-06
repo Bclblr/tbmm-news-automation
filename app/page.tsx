@@ -13,6 +13,7 @@ type NewsItem = {
   status: string;
   generated_title?: string | null;
   generated_text?: string | null;
+  generated_image_url?: string | null;
 };
 
 type Stats = {
@@ -38,6 +39,7 @@ export default function Home() {
   const [stats, setStats] = useState<Stats>(emptyStats);
   const [error, setError] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [renderingId, setRenderingId] = useState<string | null>(null);
 
   async function loadNews() {
     const response = await fetch("/api/tbmm/news", { cache: "no-store" });
@@ -59,6 +61,25 @@ export default function Home() {
       setError(err instanceof Error ? err.message : "Bilinmeyen hata");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function renderImage(id: string) {
+    setRenderingId(id);
+    setError("");
+    try {
+      const response = await fetch("/api/tbmm/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "PNG oluşturulamadı.");
+      await loadNews();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Görsel oluşturulamadı.");
+    } finally {
+      setRenderingId(null);
     }
   }
 
@@ -137,7 +158,13 @@ export default function Home() {
                   <span className={`status-badge status-${item.status}`}>{item.status === "ready" ? "Yayına hazır" : item.status === "published" ? "Yayınlandı" : "Yeni"}</span>
                   <small>{formatDate(item.published_at)} · {item.status}</small>
                 </div>
-                <div className="news-actions"><a href={"/api/tbmm/template?id=" + item.id} target="_blank" rel="noreferrer">1080×1080 görsel →</a><a href={item.source_url} target="_blank" rel="noreferrer">TBMM'de aç →</a></div>
+                <div className="news-actions">
+                  <button className="mini-button" onClick={() => renderImage(item.id)} disabled={renderingId === item.id || item.status !== "ready"}>
+                    {renderingId === item.id ? "PNG hazırlanıyor..." : item.generated_image_url ? "PNG'yi yenile" : "1080×1080 PNG"}
+                  </button>
+                  {item.generated_image_url && <a href={item.generated_image_url} target="_blank" rel="noreferrer">Görseli aç →</a>}
+                  <a href={item.source_url} target="_blank" rel="noreferrer">TBMM'de aç →</a>
+                </div>
               </article>
             ))}
           </div>
