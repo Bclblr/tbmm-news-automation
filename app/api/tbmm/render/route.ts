@@ -149,3 +149,42 @@ export async function POST(request: Request) {
   <text x="1024" y="1048" text-anchor="end" fill="#d8d3df" font-family="${FONT}" font-size="17">${escapeXml(date)}  •  TBMM</text>
 </svg>`;
 
+    const fontDir = pathModule.join(process.cwd(), "node_modules", "notosans-fontface", "fonts");
+    const regularFont = pathModule.join(fontDir, "NotoSans-Regular.ttf");
+    const boldFont = pathModule.join(fontDir, "NotoSans-Bold.ttf");
+
+    const renderer = new Resvg(svg, {
+      fitTo: { mode: "original" },
+      background: "rgba(0,0,0,0)",
+      font: {
+        loadSystemFonts: false,
+        fontFiles: [regularFont, boldFont],
+        defaultFontFamily: FONT,
+        sansSerifFamily: FONT,
+      },
+    });
+    const png = renderer.render().asPng();
+
+    const path = `tbmm/${id}.png`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from("social-images")
+      .upload(path, png, { contentType: "image/png", cacheControl: "0", upsert: true });
+
+    if (uploadError) throw new Error(`Görsel yüklenemedi: ${uploadError.message}`);
+
+    const { data: publicData } = supabaseAdmin.storage.from("social-images").getPublicUrl(path);
+    const imageUrl = `${publicData.publicUrl}?v=${Date.now()}`;
+
+    const { error: updateError } = await supabaseAdmin
+      .from("tbmm_news")
+      .update({ generated_image_url: imageUrl, updated_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (updateError) throw new Error(`Haber görsel URL'si kaydedilemedi: ${updateError.message}`);
+
+    return NextResponse.json({ ok: true, imageUrl, width: 1080, height: 1080 });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "PNG oluşturulamadı." }, { status: 500 });
+  }
+}
