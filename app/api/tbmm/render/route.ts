@@ -37,20 +37,35 @@ function wrapText(value: string, maxChars: number) {
 }
 
 function fitSummaryText(value: string, startY: number) {
+  // The summary position stays fixed; only its typography adapts to the
+  // available space. This avoids making long summaries look tiny by default.
   const bottomY = 980;
   const availableHeight = Math.max(120, bottomY - startY);
   const clean = value.trim();
+  const length = clean.length;
 
-  for (let fontSize = 30; fontSize >= 20; fontSize -= 1) {
-    const lineHeight = Math.round(fontSize * 1.35);
+  // Use content length as the initial "AI-like" sizing signal, then verify
+  // that the resulting wrapped text actually fits the available area.
+  const targetSize =
+    length <= 180 ? 34 :
+    length <= 260 ? 32 :
+    length <= 340 ? 30 :
+    length <= 420 ? 28 : 26;
+
+  for (let fontSize = targetSize; fontSize >= 22; fontSize -= 1) {
+    const lineHeight = Math.round(fontSize * 1.28);
     const maxLines = Math.max(1, Math.floor(availableHeight / lineHeight));
     const maxChars = Math.max(28, Math.floor(68 * (27 / fontSize)));
     const lines = wrapText(clean, maxChars);
-    if (lines.length <= maxLines) return { fontSize, lineHeight, lines };
+
+    if (lines.length <= maxLines) {
+      return { fontSize, lineHeight, lines };
+    }
   }
 
-  const fontSize = 20;
-  const lineHeight = Math.round(fontSize * 1.35);
+  // Keep the text readable even when the headline leaves very little room.
+  const fontSize = 22;
+  const lineHeight = Math.round(fontSize * 1.25);
   const maxChars = Math.max(28, Math.floor(68 * (27 / fontSize)));
   return { fontSize, lineHeight, lines: wrapText(clean, maxChars) };
 }
