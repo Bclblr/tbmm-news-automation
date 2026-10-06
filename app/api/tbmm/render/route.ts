@@ -137,7 +137,7 @@ export async function POST(request: Request) {
     const summaryFontSize = summary.fontSize;
     const summaryLineHeight = summary.lineHeight;
     const summaryEndY = summaryStartY + Math.max(0, textLines.length - 1) * summaryLineHeight + summaryFontSize;
-    const dividerY = summaryStartY - 30;
+    const dividerY = titleStartY + titleLines.length * (titleSize + 8) + 34;
     const panelTop = Math.max(500, dividerY - 24);
     const panelBottom = Math.min(995, summaryEndY + 34);
     const panelHeight = Math.max(120, panelBottom - panelTop);
