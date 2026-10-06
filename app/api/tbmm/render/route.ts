@@ -131,7 +131,7 @@ export async function POST(request: Request) {
       .map((line, index) => `<text x="72" y="${titleStartY + index * (titleSize + 8)}">${escapeXml(line)}</text>`)
       .join("");
 
-    const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 34;
+    const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 52;
     const summary = fitSummaryText(text || "TBMM gündeminden güncel gelişme.", summaryStartY);
     const textLines = summary.lines;
     const summaryFontSize = summary.fontSize;
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
 
   <rect x="72" y="${dividerY}" width="112" height="7" rx="3.5" fill="#ffffff"/>
 
-  <rect x="40" y="${panelTop}" width="1000" height="${panelHeight}" rx="28" fill="#000000" fill-opacity="0.46"/>\n\n  <g fill="#f5f5f5" font-family="${FONT}" font-size="${summaryFontSize}" font-weight="400">
+  <g fill="#f5f5f5" font-family="${FONT}" font-size="${summaryFontSize}" font-weight="400">
     ${textSvg}
   </g>
 
