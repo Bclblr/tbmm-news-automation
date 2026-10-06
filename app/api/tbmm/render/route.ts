@@ -88,8 +88,8 @@ export async function POST(request: Request) {
       .replace(/^📌[^\n]*\n\n/, "")
       .split("\n\n")
       .filter((part: string) => !/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/i.test(part))
-      .filter((part) => !/^🔎 Detaylar/i.test(part))
-      .filter((part) => !/^#TBMM/i.test(part))
+      .filter((part: string) => !/^🔎 Detaylar/i.test(part))
+      .filter((part: string) => !/^#TBMM/i.test(part))
       .join("\n\n")
       .trim();
 
