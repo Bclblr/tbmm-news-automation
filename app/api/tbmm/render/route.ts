@@ -114,7 +114,6 @@ export async function POST(request: Request) {
       .replace(/\s+/g, " ")
       .trim();
 
-    const textLines = wrapText(text || "TBMM gündeminden güncel gelişme.", 68);
     const date = item.published_at
       ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(item.published_at))
       : "";
