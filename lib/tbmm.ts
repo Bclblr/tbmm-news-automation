@@ -17,7 +17,7 @@ const categoryPaths = [
   { category: "meclis" as const, path: "/meclis-haber/meclis" },
   { category: "yasama" as const, path: "/meclis-haber/yasama" },
   { category: "komisyon" as const, path: "/meclis-haber/komisyon" },
-  { category: "milletvekilleri" as const, path: "/meclis-haber/milletvekilleri" },
+  { category: "milletvekilleri" as const, path: "/meclis-haber/milletvekili" },
 ];
 
 function cleanText(value: string) {
