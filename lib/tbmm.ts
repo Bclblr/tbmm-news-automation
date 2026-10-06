@@ -36,17 +36,17 @@ function cleanText(value: string) {
 }
 
 function meta(html: string, name: string) {
-  const escapedName = name.replace(/[.*+?^\${}()|[\]\]/g, "\$&");
   const pattern = new RegExp(
-    `<meta[^>]+(?:property|name)=["']${escapedName}["'][^>]+content=["']([^"']+)["'][^>]*>`,
+    `<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']+)["'][^>]*>`,
     "i",
   );
   const reversePattern = new RegExp(
-    `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escapedName}["'][^>]*>`,
+    `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${name}["'][^>]*>`,
     "i",
   );
   return pattern.exec(html)?.[1]?.trim() ?? reversePattern.exec(html)?.[1]?.trim();
 }
+
 function extractDate(html: string) {
   const match =
     html.match(/\d{4}-\d{2}-\d{2}\s*-?\s*\d{2}:\d{2}/) ??
