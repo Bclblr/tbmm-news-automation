@@ -66,7 +66,26 @@ export async function POST() {
       generated += 1;
     }
 
-    return NextResponse.json({ ok: true, generated });
+    let rendered = 0;
+    const generatedIds = news.map((item) => item.id);
+
+    for (const id of generatedIds) {
+      const renderResponse = await fetch(new URL("/api/tbmm/render", request.url), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+        cache: "no-store",
+      });
+
+      if (!renderResponse.ok) {
+        const renderData = await renderResponse.json().catch(() => ({}));
+        throw new Error(renderData.error ?? "Görsel oluşturulamadı.");
+      }
+
+      rendered += 1;
+    }
+
+    return NextResponse.json({ ok: true, generated, rendered });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "İçerik üretilemedi." },
