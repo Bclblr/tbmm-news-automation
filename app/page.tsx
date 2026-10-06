@@ -1,20 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type NewsItem = {
   id: string;
   title: string;
   summary: string;
-  url: string;
-  publishedAt: string;
+  source_url: string;
+  published_at: string | null;
   category: string;
+  image_url?: string | null;
+  status: string;
 };
+
+type Stats = {
+  total: number;
+  ready: number;
+  published: number;
+  latestCheck: string | null;
+};
+
+const emptyStats: Stats = { total: 0, ready: 0, published: 0, latestCheck: null };
+
+function formatDate(value: string | null) {
+  if (!value) return "Tarih yok";
+  return new Intl.DateTimeFormat("tr-TR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<NewsItem[]>([]);
+  const [stats, setStats] = useState<Stats>(emptyStats);
   const [error, setError] = useState("");
+
+  async function loadNews() {
+    const response = await fetch("/api/tbmm/news", { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error ?? "Haberler alınamadı.");
+    setItems(data.items ?? []);
+    setStats(data.stats ?? emptyStats);
+  }
 
   async function checkNews() {
     setLoading(true);
@@ -22,14 +50,20 @@ export default function Home() {
     try {
       const response = await fetch("/api/tbmm/check", { cache: "no-store" });
       const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error ?? "Haberler alınamadı.");
-      setItems(data.items ?? []);
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Haber kontrolü başarısız.");
+      await loadNews();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bilinmeyen hata");
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    loadNews().catch((err) => {
+      setError(err instanceof Error ? err.message : "Veriler yüklenemedi.");
+    });
+  }, []);
 
   return (
     <main className="dashboard">
@@ -43,10 +77,10 @@ export default function Home() {
       </header>
 
       <section className="stats">
-        <div className="card"><span>Son kontrol</span><strong>{items.length ? "Az önce" : "Henüz yapılmadı"}</strong></div>
-        <div className="card"><span>Bulunan haber</span><strong>{items.length}</strong></div>
-        <div className="card"><span>Yayına hazır</span><strong>0</strong></div>
-        <div className="card"><span>Yayınlanan</span><strong>0</strong></div>
+        <div className="card"><span>Son kayıt</span><strong>{stats.latestCheck ? formatDate(stats.latestCheck) : "Henüz yok"}</strong></div>
+        <div className="card"><span>Toplam haber</span><strong>{stats.total}</strong></div>
+        <div className="card"><span>Yayına hazır</span><strong>{stats.ready}</strong></div>
+        <div className="card"><span>Yayınlanan</span><strong>{stats.published}</strong></div>
       </section>
 
       <section className="main-card">
@@ -60,33 +94,38 @@ export default function Home() {
 
       {error && <div className="error">{error}</div>}
 
-      {items.length > 0 && (
-        <section className="roadmap">
-          <div className="section-title">
-            <div><p className="eyebrow">SONUÇLAR</p><h2>TBMM'den alınan içerikler</h2></div>
-            <span className="count">{items.length} kayıt</span>
-          </div>
+      <section className="roadmap">
+        <div className="section-title">
+          <div><p className="eyebrow">SUPABASE</p><h2>Kayıtlı TBMM haberleri</h2></div>
+          <span className="count">{items.length} gösteriliyor</span>
+        </div>
+
+        {items.length === 0 ? (
+          <p className="muted">Henüz kayıtlı haber yok. “Haberleri Kontrol Et” butonuna basarak ilk taramayı başlat.</p>
+        ) : (
           <div className="news-list">
             {items.map((item) => (
               <article className="news-item" key={item.id}>
-                <div>
+                {item.image_url && <img className="news-image" src={item.image_url} alt="" />}
+                <div className="news-content">
                   <span className="tag">{item.category}</span>
                   <h3>{item.title}</h3>
-                  <small>{item.publishedAt}</small>
+                  {item.summary && <p className="muted news-summary">{item.summary}</p>}
+                  <small>{formatDate(item.published_at)} · {item.status}</small>
                 </div>
-                <a href={item.url} target="_blank" rel="noreferrer">TBMM'de aç →</a>
+                <a href={item.source_url} target="_blank" rel="noreferrer">TBMM'de aç →</a>
               </article>
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       <section className="roadmap">
         <h2>Proje durumu</h2>
         <div className="steps">
           <div className="step active"><b>01</b><span>Panel</span><small>Hazır</small></div>
           <div className="step active"><b>02</b><span>TBMM veri kaynağı</span><small>Bağlandı</small></div>
-          <div className="step"><b>03</b><span>Supabase veritabanı</span><small>Sonraki aşama</small></div>
+          <div className="step active"><b>03</b><span>Supabase veritabanı</span><small>Bağlandı</small></div>
           <div className="step"><b>04</b><span>İçerik motoru</span><small>Bekliyor</small></div>
           <div className="step"><b>05</b><span>Instagram + Facebook</span><small>Bekliyor</small></div>
         </div>
