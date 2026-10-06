@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
-import { supabaseAdmin } from "../../../../../lib/supabase/server";
+import { supabaseAdmin } from "../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
