@@ -173,12 +173,12 @@ export async function POST(request: Request) {
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from("social-images")
-      .upload(path, png, { contentType: "image/png", cacheControl: "31536000", upsert: true });
+      .upload(path, png, { contentType: "image/png", cacheControl: "0", upsert: true });
 
     if (uploadError) throw new Error(`Görsel yüklenemedi: ${uploadError.message}`);
 
     const { data: publicData } = supabaseAdmin.storage.from("social-images").getPublicUrl(path);
-    const imageUrl = publicData.publicUrl;
+    const imageUrl = `${publicData.publicUrl}?v=${Date.now()}`;
 
     const { error: updateError } = await supabaseAdmin
       .from("tbmm_news")
