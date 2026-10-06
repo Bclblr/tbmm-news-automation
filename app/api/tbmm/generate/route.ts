@@ -195,7 +195,7 @@ export async function POST(request: Request) {
       try {
         result = await generateWithGemini(item.title, item.summary, item.content || "", item.category);
       } catch {
-        result = fallback(item.title, item.summary);
+        result = fallback(item.title, item.summary, item.content || "");
       }
       const generatedTitle = result.headline;
       const generatedText = `📌 ${item.category || "TBMM"}
