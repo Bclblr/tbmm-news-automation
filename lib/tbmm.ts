@@ -36,11 +36,17 @@ function cleanText(value: string) {
 }
 
 function meta(html: string, name: string) {
-  const re1 = new RegExp('<meta[^>]+(?:property|name)=["\\\']' + name + '["\\\'][^>]+content=["\\\']([^"\\\']+)["\\\'][^>]*>', "i");
-  const re2 = new RegExp('<meta[^>]+content=["\\\']([^"\\\']+)["\\\'][^>]+(?:property|name)=["\\\']' + name + '["\\\'][^>]*>', "i");
-  return re1.exec(html)?.[1]?.trim() ?? re2.exec(html)?.[1]?.trim();
+  const escapedName = name.replace(/[.*+?^\${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    `<meta[^>]+(?:property|name)=["']\${escapedName}["'][^>]+content=["']([^"']+)["'][^>]*>`,
+    "i",
+  );
+  const reversePattern = new RegExp(
+    `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']\${escapedName}["'][^>]*>`,
+    "i",
+  );
+  return pattern.exec(html)?.[1]?.trim() ?? reversePattern.exec(html)?.[1]?.trim();
 }
-
 function extractDate(html: string) {
   const match =
     html.match(/\\d{4}-\\d{2}-\\d{2}\\s*-?\\s*\\d{2}:\\d{2}/) ??
