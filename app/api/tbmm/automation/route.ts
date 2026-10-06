@@ -86,6 +86,7 @@ async function runAutomation(request: Request) {
       .select("id, generated_image_url, published_to_instagram, published_to_facebook")
       .eq("status", "ready")
       .not("generated_image_url", "is", null)
+      .gte("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString())
       .order("published_at", { ascending: true })
       .limit(1)
       .maybeSingle();
