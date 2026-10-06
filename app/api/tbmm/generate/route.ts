@@ -3,14 +3,16 @@ import { supabaseAdmin } from "../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+type AiResult = { headline: string; summary: string };
+
 function cleanText(value: string) {
   return value
     .replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "")
     .replace(/Resmi İnternet Sitesi/gi, "")
-    .replace(/🔎\\s*Detaylar[^\\n]*/gi, "")
-    .replace(/#TBMM[^\\n]*/gi, "")
-    .replace(/^📌[^\\n]*\\n?/i, "")
-    .replace(/\\s+/g, " ")
+    .replace(/🔎\s*Detaylar[^\n]*/gi, "")
+    .replace(/#TBMM[^\n]*/gi, "")
+    .replace(/^📌[^\n]*\n?/i, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -22,8 +24,8 @@ function wordOverlapRatio(a: string, b: string) {
   const normalize = (value: string) =>
     cleanText(value)
       .toLocaleLowerCase("tr-TR")
-      .replace(/[^a-zçğıöşü0-9\\s]/gi, " ")
-      .split(/\\s+/)
+      .replace(/[^a-zçğıöşü0-9\s]/gi, " ")
+      .split(/\s+/)
       .filter((word) => word.length >= 4);
 
   const sourceWords = new Set(normalize(a));
@@ -34,7 +36,7 @@ function wordOverlapRatio(a: string, b: string) {
   return overlap / candidateWords.length;
 }
 
-function validateAiResult(result: AiResult, originalTitle: string, sourceText: string) {
+function validateAiResult(result: AiResult, originalTitle: string, sourceText: string): AiResult {
   const headline = cleanText(result.headline);
   const summary = cleanText(result.summary);
 
@@ -43,57 +45,131 @@ function validateAiResult(result: AiResult, originalTitle: string, sourceText: s
   if (headline === cleanText(originalTitle)) throw new Error("Gemini orijinal başlığı kopyaladı.");
   if (headline.length < 25 || headline.length > 90) throw new Error("Gemini başlık uzunluğu uygun değil.");
   if (summary.length < 160 || summary.length > 500) throw new Error("Gemini metin uzunluğu uygun değil.");
-
-  const overlap = wordOverlapRatio(sourceText, summary);
-  if (overlap > 0.82) throw new Error("Gemini kaynak metni fazla doğrudan kopyaladı.");
+  if (wordOverlapRatio(sourceText, summary) > 0.82) {
+    throw new Error("Gemini kaynak metni fazla doğrudan kopyaladı.");
+  }
 
   return { headline, summary };
 }
 
-type AiResult = { headline: string; summary: string };
-
-async function generateWithGemini(title: string, summary: string, content: string, category: string): Promise<AiResult> {
+async function generateWithGemini(
+  title: string,
+  summary: string,
+  content: string,
+  category: string,
+): Promise<AiResult> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return fallback(title, summary);
+  const sourceText = [title, summary, content].filter(Boolean).join("\n\n");
+
+  if (!apiKey) return fallback(title, summary, content);
+
   const model = process.env.GEMINI_MODEL || "gemini-3.7-flash";
-  const prompt = `Türkçe haber editörüsün. Aşağıdaki TBMM haberini sosyal medya için yeniden yaz.
+
+  const prompt = `Bu TBMM haberini sosyal medyada kullanılacak özgün bir Türkçe haber içeriğine dönüştür.
+
+EDİTORYAL HEDEF:
+Sen bir haber editörüsün. Kaynağı kopyalayan bir özetleyici gibi değil, aynı olayı daha akıcı ve anlaşılır biçimde yeniden yazan bir editör gibi davran. Başlık ve metin AYNI MERKEZİ GELİŞMEYİ anlatmalı; birbirini doğrulamalı ve çelişmemeli.
 
 KURALLAR:
-- Orijinal başlığı kopyalama; haberi anlayıp yeni, kısa bir başlık yaz.
-- Başlık 45-80 karakter olsun.
-- 2-3 cümlelik 180-420 karakterlik özet yaz.
-- Sadece kaynakta bulunan bilgileri kullan, bilgi uydurma.
-- İsim, parti, kurum, tarih ve sayıları koru.
-- "Türkiye Büyük Millet Meclisi Resmi İnternet Sitesi", "Resmi İnternet Sitesi", "Detaylar" ifadelerini kullanma.
-- Gazeteci dili kullan.
-- Yalnızca JSON döndür: {"headline":"...","summary":"..."}
+1. Kaynaktaki ana olayı belirle ve başlıkta en önemli gelişmeyi öne çıkar.
+2. Orijinal başlığı kopyalama veya yalnızca birkaç kelimesini değiştirme. Yeni ve doğal bir başlık yaz.
+3. Başlık 35-75 karakter aralığında, tek cümlelik ve haber diliyle yaz.
+4. Metin 2-3 cümle ve 220-420 karakter aralığında olsun.
+5. İlk cümlede ana gelişmeyi söyle; ikinci cümlede gerekiyorsa kişi, parti, kurum, tarih, sayı veya önemli ayrıntıyı ver.
+6. Kaynakta olmayan hiçbir bilgi, yorum, neden-sonuç ilişkisi, niyet veya sonuç ekleme.
+7. İsimleri, siyasi parti adlarını, kurumları, tarihleri ve sayıları değiştirme veya uydurma.
+8. Kaynağın cümle yapısını ve ifadelerini birebir kopyalama; bilgileri koruyarak doğal biçimde yeniden kur.
+9. "Türkiye Büyük Millet Meclisi Resmi İnternet Sitesi", "Resmi İnternet Sitesi", "Detaylar", "Kaynak", "haberde", "açıklamada" gibi mekanik veya siteye ait ifadeleri kullanma.
+10. Emojiler, hashtagler, başlık etiketleri ve kaynak notları üretme.
+11. Siyasi içerikte tarafsız, doğrulanabilir ve ölçülü haber dili kullan. Övgü, eleştiri, propaganda veya kişisel yorum ekleme.
+12. Kaynak metin yetersizse bilgi uydurma; yalnızca doğrulanabilen kısmı yaz.
 
-KATEGORİ: ${category}
-ORİJİNAL BAŞLIK: ${title}
-MEVCUT ÖZET: ${summary}
-HABER İÇERİĞİ:
-${content.slice(0, 14000)}`;
+KATEGORİ:
+${category}
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.25, responseMimeType: "application/json" } }),
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(`Gemini API ${response.status}`);
+ORİJİNAL BAŞLIK:
+${title}
+
+MEVCUT ÖZET:
+${summary}
+
+KAYNAK İÇERİK:
+${content.slice(0, 14000)}
+
+SADECE şu JSON nesnesini döndür:
+{"headline":"özgün başlık","summary":"2-3 cümlelik özgün haber metni"}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{
+            text: "Sen tarafsız bir Türkçe haber editörüsün. Kaynaktaki gerçekleri korur, metni doğal biçimde yeniden yazar ve bilgi uydurmazsın. Başlık ile haber metninin aynı ana gelişmeye odaklanmasını sağlarsın."
+          }]
+        },
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              headline: { type: "STRING" },
+              summary: { type: "STRING" }
+            },
+            required: ["headline", "summary"]
+          }
+        }
+      }),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(`Gemini API ${response.status}: ${errorText.slice(0, 300)}`);
+  }
+
   const data = await response.json();
   const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!raw) throw new Error("Gemini boş yanıt döndürdü.");
-  const parsed = JSON.parse(raw) as Partial<AiResult>;
-  const headline = String(parsed.headline || "").replace(/\s+/g, " ").trim();
-  const aiSummary = String(parsed.summary || "").replace(/\s+/g, " ").trim();
-  if (!headline || !aiSummary) throw new Error("Gemini geçerli içerik üretmedi.");
-  return { headline, summary: aiSummary };
+
+  let parsed: Partial<AiResult>;
+  try {
+    parsed = JSON.parse(raw) as Partial<AiResult>;
+  } catch {
+    throw new Error("Gemini JSON döndüremedi.");
+  }
+
+  return validateAiResult(
+    {
+      headline: String(parsed.headline || ""),
+      summary: String(parsed.summary || ""),
+    },
+    title,
+    sourceText,
+  );
 }
 
-function fallback(title: string, summary: string): AiResult {
+function fallback(title: string, summary: string, content: string): AiResult {
+  const cleanTitle = cleanText(title);
+  const sourceParagraph =
+    content
+      .split(/\n\n+/)
+      .map((part) => cleanText(part))
+      .find((part) => part.length >= 60) || cleanText(summary);
+
   return {
-    headline: title.replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "").trim() || "TBMM gündeminden yeni gelişme",
-    summary: summary.replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "").trim() || "TBMM gündeminden güncel gelişme.",
+    headline:
+      cleanTitle && cleanTitle.length <= 90
+        ? cleanTitle
+        : "TBMM gündeminden yeni gelişme",
+    summary:
+      sourceParagraph
+        ? sourceParagraph.slice(0, 420)
+        : "TBMM gündeminden güncel bir gelişme paylaşıldı.",
   };
 }
 
