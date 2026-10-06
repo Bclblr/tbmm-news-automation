@@ -86,7 +86,161 @@ export async function POST(request: Request) {
 
     const text = (item.generated_text || "")
       .replace(/^📌[^\n]*\n\n/, "")
-      .split("\n\n")[0];
+      .split("\n\n")
+      .filter((part) => !/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/i.test(part))
+      .filter((part) => !/^🔎 Detaylar/i.test(part))
+      .filter((part) => !/^#TBMM/i.test(part))
+      .join("\n\n")
+      .trim();
+
+    const textLines = wrapText(text, 58, 2);
+    const date = item.published_at
+      ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(item.published_at))
+      : "";
+
+    const imageData = await imageAsDataUri(item.image_url);
+    const image = imageData
+      ? `<image href="${imageData}" x="0" y="0" width="1080" height="1080" preserveAspectRatio="xMidYMid slice"/>`
+      : `<rect width="1080" height="1080" fill="#15111f"/>`;
+
+    const category = categoryLabel(item.category || "TBMM");
+    const categoryWidth = Math.min(390, Math.max(150, category.length * 15 + 70));
+
+    const titleStartY = 665 - Math.max(0, titleLines.length - 1) * 10;
+    const titleSvg = titleLines
+      .map((line, index) => `<text x="72" y="${titleStartY + index * (titleSize + 8)}">${escapeXml(line)}</text>`)
+      .join("");
+
+    const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 38;
+    const dividerY = summaryStartY - 38;
+    const textSvg = textLines
+      .map((line, index) => `<text x="72" y="${summaryStartY + index * 31}">${escapeXml(line)}</text>`)
+      .join("");
+
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <linearGradient id="bottomShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="0.48" stop-color="#000000" stop-opacity="0.12"/>
+      <stop offset="0.70" stop-color="#000000" stop-opacity="0.78"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.98"/>
+    </linearGradient>
+    <filter id="softShadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  ${image}
+  <rect width="1080" height="1080" fill="url(#bottomShade)"/>
+
+  <g filter="url(#softShadow)" fill="#ffffff" font-family="${FONT}" font-weight="700" font-size="${titleSize}">
+    ${titleSvg}
+  </g>
+
+  <rect x="72" y="${dividerY}" width="112" height="7" rx="3.5" fill="#ffffff"/>
+
+  <g fill="#f5f5f5" font-family="${FONT}" font-size="24" font-weight="400">
+    ${textSvg}
+  </g>
+
+  <rect x="56" y="1004" width="968" height="1" fill="#ffffff" fill-opacity="0.24"/>
+  <text x="56" y="1048" fill="#ffffff" font-family="${FONT}" font-size="18" font-weight="700" letter-spacing="1">HALK LOCASI</text>
+  <text x="1024" y="1048" text-anchor="end" fill="#d8d3df" font-family="${FONT}" font-size="17">${escapeXml(date)}  •  TBMM</text>
+</svg>`mport pathModule from "node:path";
+import { NextResponse } from "next/server";
+import { Resvg } from "@resvg/resvg-js";
+import { supabaseAdmin } from "../../../../lib/supabase/server";
+
+export const dynamic = "force-dynamic";
+
+const FONT = "Noto Sans";
+
+function escapeXml(value: string) {
+  return value
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function wrapText(value: string, maxChars: number, maxLines: number) {
+  const words = value.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of words) {
+    const candidate = line ? line + " " + word : word;
+    if (candidate.length > maxChars && line) {
+      lines.push(line);
+      line = word;
+      if (lines.length === maxLines) break;
+    } else {
+      line = candidate;
+    }
+  }
+
+  if (lines.length < maxLines && line) lines.push(line);
+
+  const consumed = lines.join(" ");
+  if (lines.length === maxLines && words.join(" ").length > consumed.length) {
+    lines[maxLines - 1] = lines[maxLines - 1].replace(/[.,;:!?\s]+$/, "") + "…";
+  }
+
+  return lines;
+}
+
+function titleFontSize(lineCount: number, longestLine: number) {
+  if (lineCount >= 4 || longestLine > 27) return 46;
+  if (lineCount === 3 || longestLine > 22) return 52;
+  return 58;
+}
+
+function categoryLabel(value: string) {
+  return value.toLocaleUpperCase("tr-TR");
+}
+
+async function imageAsDataUri(url: string | null) {
+  if (!url) return "";
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) return "";
+    const type = response.headers.get("content-type") || "image/jpeg";
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return `data:${type};base64,${buffer.toString("base64")}`;
+  } catch {
+    return "";
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const id = typeof body.id === "string" ? body.id : null;
+    if (!id) return NextResponse.json({ ok: false, error: "id gerekli." }, { status: 400 });
+
+    const { data: item, error } = await supabaseAdmin
+      .from("tbmm_news")
+      .select("id, title, generated_title, generated_text, category, published_at, image_url")
+      .eq("id", id)
+      .single();
+
+    if (error || !item) return NextResponse.json({ ok: false, error: "Haber bulunamadı." }, { status: 404 });
+
+    const titleLines = wrapText(item.generated_title || item.title, 27, 4);
+    const longestTitleLine = Math.max(...titleLines.map((line) => line.length), 0);
+    const titleSize = titleFontSize(titleLines.length, longestTitleLine);
+
+    const text = (item.generated_text || "")
+      .replace(/^📌[^\n]*\n\n/, "")
+      .split("\n\n")
+      .filter((part) => !/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/i.test(part))
+      .filter((part) => !/^🔎 Detaylar/i.test(part))
+      .filter((part) => !/^#TBMM/i.test(part))
+      .join("\n\n")
+      .trim();
 
     const textLines = wrapText(text, 58, 2);
     const date = item.published_at
