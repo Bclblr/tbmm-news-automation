@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     const text = (item.generated_text || "")
       .replace(/^📌[^\n]*\n\n/, "")
       .split("\n\n")
-      .filter((part) => !/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/i.test(part))
+      .filter((part: string) => !/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/i.test(part))
       .filter((part) => !/^🔎 Detaylar/i.test(part))
       .filter((part) => !/^#TBMM/i.test(part))
       .join("\n\n")
