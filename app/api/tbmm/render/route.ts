@@ -93,7 +93,7 @@ export async function POST(request: Request) {
       .join("\n\n")
       .trim();
 
-    const textLines = wrapText(text, 58, 2);
+    const textLines = wrapText(text, 64, 3);
     const date = item.published_at
       ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(item.published_at))
       : "";
@@ -106,13 +106,13 @@ export async function POST(request: Request) {
     const category = categoryLabel(item.category || "TBMM");
     const categoryWidth = Math.min(390, Math.max(150, category.length * 15 + 70));
 
-    const titleStartY = 665 - Math.max(0, titleLines.length - 1) * 10;
+    const titleStartY = 600 - Math.max(0, titleLines.length - 1) * 8;
     const titleSvg = titleLines
       .map((line, index) => `<text x="72" y="${titleStartY + index * (titleSize + 8)}">${escapeXml(line)}</text>`)
       .join("");
 
-    const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 38;
-    const dividerY = summaryStartY - 38;
+    const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 30;
+    const dividerY = summaryStartY - 30;
     const textSvg = textLines
       .map((line, index) => `<text x="72" y="${summaryStartY + index * 31}">${escapeXml(line)}</text>`)
       .join("");
@@ -140,7 +140,7 @@ export async function POST(request: Request) {
 
   <rect x="72" y="${dividerY}" width="112" height="7" rx="3.5" fill="#ffffff"/>
 
-  <g fill="#f5f5f5" font-family="${FONT}" font-size="24" font-weight="400">
+  <g fill="#f5f5f5" font-family="${FONT}" font-size="22" font-weight="400">
     ${textSvg}
   </g>
 
