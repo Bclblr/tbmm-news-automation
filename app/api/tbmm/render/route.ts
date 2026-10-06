@@ -46,18 +46,20 @@ function fitSummaryText(value: string, startY: number, titleSize: number, titleL
   // Keep long summaries readable. The size is content-aware, then checked
   // against the actual space left by the headline.
   const targetSize =
-    length <= 180 ? 35 :
-    length <= 260 ? 33 :
-    length <= 340 ? 31 :
-    length <= 420 ? 29 : 27;
+    length <= 180 ? 42 :
+    length <= 260 ? 39 :
+    length <= 340 ? 36 :
+    length <= 420 ? 34 : 32;
 
-  const maxSizeByTitle = titleLines >= 4 ? 31 : titleSize >= 56 ? 35 : 33;
+  // Summary should remain visually prominent even when the headline is long.
+  // Only reduce it when the actual wrapped text cannot fit vertically.
+  const maxSizeByTitle = titleLines >= 4 ? 36 : titleSize >= 56 ? 42 : 39;
   const initialSize = Math.min(targetSize, maxSizeByTitle);
 
-  for (let fontSize = initialSize; fontSize >= 23; fontSize -= 1) {
-    const lineHeight = Math.round(fontSize * 1.28);
+  for (let fontSize = initialSize; fontSize >= 28; fontSize -= 1) {
+    const lineHeight = Math.round(fontSize * 1.24);
     const maxLines = Math.max(1, Math.floor(availableHeight / lineHeight));
-    const maxChars = Math.max(30, Math.floor(68 * (28 / fontSize)));
+    const maxChars = Math.max(26, Math.floor(68 * (28 / fontSize)));
     const lines = wrapText(clean, maxChars);
 
     if (lines.length <= maxLines) {
@@ -65,9 +67,10 @@ function fitSummaryText(value: string, startY: number, titleSize: number, titleL
     }
   }
 
-  const fontSize = 23;
-  const lineHeight = Math.round(fontSize * 1.25);
-  const maxChars = Math.max(30, Math.floor(68 * (28 / fontSize)));
+  // Prefer a larger readable size over shrinking the summary excessively.
+  const fontSize = 28;
+  const lineHeight = Math.round(fontSize * 1.22);
+  const maxChars = Math.max(26, Math.floor(68 * (28 / fontSize)));
   return { fontSize, lineHeight, lines: wrapText(clean, maxChars) };
 }
 
