@@ -17,7 +17,7 @@ function escapeXml(value: string) {
     .replace(/'/g, "&apos;");
 }
 
-function wrapText(value: string, maxChars: number, maxLines: number) {
+function wrapText(value: string, maxChars: number) {
   const words = value.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = "";
@@ -27,22 +27,33 @@ function wrapText(value: string, maxChars: number, maxLines: number) {
     if (candidate.length > maxChars && line) {
       lines.push(line);
       line = word;
-      if (lines.length === maxLines) break;
     } else {
       line = candidate;
     }
   }
 
-  if (lines.length < maxLines && line) lines.push(line);
-
-  const consumed = lines.join(" ");
-  if (lines.length === maxLines && words.join(" ").length > consumed.length) {
-    lines[maxLines - 1] = lines[maxLines - 1].replace(/[.,;:!?\s]+$/, "") + "…";
-  }
-
+  if (line) lines.push(line);
   return lines;
 }
 
+function fitSummaryText(value: string, startY: number) {
+  const bottomY = 980;
+  const availableHeight = Math.max(120, bottomY - startY);
+  const clean = value.trim();
+
+  for (let fontSize = 30; fontSize >= 16; fontSize -= 1) {
+    const lineHeight = Math.round(fontSize * 1.35);
+    const maxLines = Math.max(1, Math.floor(availableHeight / lineHeight));
+    const maxChars = Math.max(28, Math.floor(68 * (27 / fontSize)));
+    const lines = wrapText(clean, maxChars);
+    if (lines.length <= maxLines) return { fontSize, lineHeight, lines };
+  }
+
+  const fontSize = 16;
+  const lineHeight = Math.round(fontSize * 1.35);
+  const maxChars = Math.max(28, Math.floor(68 * (27 / fontSize)));
+  return { fontSize, lineHeight, lines: wrapText(clean, maxChars) };
+}
 function titleFontSize(lineCount: number, longestLine: number) {
   if (lineCount >= 4 || longestLine > 27) return 46;
   if (lineCount === 3 || longestLine > 22) return 52;
@@ -85,7 +96,7 @@ export async function POST(request: Request) {
       .replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "")
       .replace(/\s+/g, " ")
       .trim() || "Meclis gündeminden yeni gelişme";
-    const titleLines = wrapText(headline, 27, 4);
+    const titleLines = wrapText(headline, 27);
     const longestTitleLine = Math.max(...titleLines.map((line) => line.length), 0);
     const titleSize = titleFontSize(titleLines.length, longestTitleLine);
 
@@ -103,7 +114,7 @@ export async function POST(request: Request) {
       .replace(/\s+/g, " ")
       .trim();
 
-    const textLines = wrapText(text || "TBMM gündeminden güncel gelişme.", 68, 4);
+    const textLines = wrapText(text || "TBMM gündeminden güncel gelişme.", 68);
     const date = item.published_at
       ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(item.published_at))
       : "";
@@ -122,9 +133,17 @@ export async function POST(request: Request) {
       .join("");
 
     const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 34;
+    const summary = fitSummaryText(text || "TBMM gündeminden güncel gelişme.", summaryStartY);
+    const textLines = summary.lines;
+    const summaryFontSize = summary.fontSize;
+    const summaryLineHeight = summary.lineHeight;
+    const summaryEndY = summaryStartY + Math.max(0, textLines.length - 1) * summaryLineHeight + summaryFontSize;
     const dividerY = summaryStartY - 30;
+    const panelTop = Math.max(500, dividerY - 24);
+    const panelBottom = Math.min(995, summaryEndY + 34);
+    const panelHeight = Math.max(120, panelBottom - panelTop);
     const textSvg = textLines
-      .map((line, index) => `<text x="72" y="${summaryStartY + index * 36}">${escapeXml(line)}</text>`)
+      .map((line, index) => `<text x="72" y="${summaryStartY + index * summaryLineHeight}">${escapeXml(line)}</text>`)
       .join("");
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
@@ -150,7 +169,7 @@ export async function POST(request: Request) {
 
   <rect x="72" y="${dividerY}" width="112" height="7" rx="3.5" fill="#ffffff"/>
 
-  <g fill="#f5f5f5" font-family="${FONT}" font-size="27" font-weight="400">
+  <rect x="40" y="${panelTop}" width="1000" height="${panelHeight}" rx="28" fill="#000000" fill-opacity="0.46"/>\n\n  <g fill="#f5f5f5" font-family="${FONT}" font-size="${summaryFontSize}" font-weight="400">
     ${textSvg}
   </g>
 
