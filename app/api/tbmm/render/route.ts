@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       .replace(/\s+/g, " ")
       .trim();
 
-    const textLines = wrapText(text || "TBMM gündeminden güncel gelişme.", 64, 3);
+    const textLines = wrapText(text || "TBMM gündeminden güncel gelişme.", 68, 4);
     const date = item.published_at
       ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(item.published_at))
       : "";
@@ -121,10 +121,10 @@ export async function POST(request: Request) {
       .map((line, index) => `<text x="72" y="${titleStartY + index * (titleSize + 8)}">${escapeXml(line)}</text>`)
       .join("");
 
-    const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 30;
+    const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 34;
     const dividerY = summaryStartY - 30;
     const textSvg = textLines
-      .map((line, index) => `<text x="72" y="${summaryStartY + index * 31}">${escapeXml(line)}</text>`)
+      .map((line, index) => `<text x="72" y="${summaryStartY + index * 36}">${escapeXml(line)}</text>`)
       .join("");
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
 
   <rect x="72" y="${dividerY}" width="112" height="7" rx="3.5" fill="#ffffff"/>
 
-  <g fill="#f5f5f5" font-family="${FONT}" font-size="22" font-weight="400">
+  <g fill="#f5f5f5" font-family="${FONT}" font-size="27" font-weight="400">
     ${textSvg}
   </g>
 
