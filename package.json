@@ -14,7 +14,8 @@
     "react-dom": "19.2.0",
     "@supabase/supabase-js": "^2.75.0",
     "sharp": "^0.34.4",
-    "@resvg/resvg-js": "^2.6.2"
+    "@resvg/resvg-js": "^2.6.2",
+    "notosans-fontface": "^1.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
