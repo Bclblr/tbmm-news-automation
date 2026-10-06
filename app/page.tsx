@@ -137,7 +137,7 @@ export default function Home() {
                   <span className={`status-badge status-${item.status}`}>{item.status === "ready" ? "Yayına hazır" : item.status === "published" ? "Yayınlandı" : "Yeni"}</span>
                   <small>{formatDate(item.published_at)} · {item.status}</small>
                 </div>
-                <a href={item.source_url} target="_blank" rel="noreferrer">TBMM'de aç →</a>
+                <div className="news-actions"><a href={"/api/tbmm/template?id=" + item.id} target="_blank" rel="noreferrer">1080×1080 görsel →</a><a href={item.source_url} target="_blank" rel="noreferrer">TBMM'de aç →</a></div>
               </article>
             ))}
           </div>
