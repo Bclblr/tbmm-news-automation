@@ -11,6 +11,8 @@ type NewsItem = {
   category: string;
   image_url?: string | null;
   status: string;
+  generated_title?: string | null;
+  generated_text?: string | null;
 };
 
 type Stats = {
@@ -35,6 +37,7 @@ export default function Home() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [stats, setStats] = useState<Stats>(emptyStats);
   const [error, setError] = useState("");
+  const [generating, setGenerating] = useState(false);
 
   async function loadNews() {
     const response = await fetch("/api/tbmm/news", { cache: "no-store" });
@@ -42,6 +45,21 @@ export default function Home() {
     if (!response.ok || !data.ok) throw new Error(data.error ?? "Haberler alınamadı.");
     setItems(data.items ?? []);
     setStats(data.stats ?? emptyStats);
+  }
+
+  async function generateContent() {
+    setGenerating(true);
+    setError("");
+    try {
+      const response = await fetch("/api/tbmm/generate", { method: "POST", cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "İçerik üretilemedi.");
+      await loadNews();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Bilinmeyen hata");
+    } finally {
+      setGenerating(false);
+    }
   }
 
   async function checkNews() {
@@ -89,7 +107,12 @@ export default function Home() {
           <h2>Resmî haberleri kontrol et.</h2>
           <p className="muted">TBMM'nin Meclis, Yasama, Komisyon, Milletvekilleri ve Meclis Başkanı haber listelerini kontrol eder.</p>
         </div>
-        <button onClick={checkNews} disabled={loading}>{loading ? "Kontrol ediliyor..." : "Haberleri Kontrol Et"}</button>
+        <div className="actions">
+          <button onClick={checkNews} disabled={loading || generating}>{loading ? "Kontrol ediliyor..." : "Haberleri Kontrol Et"}</button>
+          <button className="secondary-button" onClick={generateContent} disabled={generating || loading}>
+            {generating ? "İçerik hazırlanıyor..." : "İçerik Üret"}
+          </button>
+        </div>
       </section>
 
       {error && <div className="error">{error}</div>}
@@ -111,6 +134,7 @@ export default function Home() {
                   <span className="tag">{item.category}</span>
                   <h3>{item.title}</h3>
                   {item.summary && <p className="muted news-summary">{item.summary}</p>}
+                  <span className={`status-badge status-${item.status}`}>{item.status === "ready" ? "Yayına hazır" : item.status === "published" ? "Yayınlandı" : "Yeni"}</span>
                   <small>{formatDate(item.published_at)} · {item.status}</small>
                 </div>
                 <a href={item.source_url} target="_blank" rel="noreferrer">TBMM'de aç →</a>
