@@ -157,3 +157,29 @@ export async function POST(request: Request) {
   <text x="56" y="1048" fill="#ffffff" font-family="Arial, sans-serif" font-size="19" font-weight="700">HALK LOCASI</text>
   <text x="1024" y="1048" text-anchor="end" fill="#d4d4d8" font-family="Arial, sans-serif" font-size="18">${escapeXml(date)}  •  TBMM</text>
 </svg>`
+;
+
+    const png = await sharp(Buffer.from(svg)).png().toBuffer();
+    const path = `tbmm/${id}.png`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from("social-images")
+      .upload(path, png, { contentType: "image/png", cacheControl: "31536000", upsert: true });
+
+    if (uploadError) throw new Error(`Görsel yüklenemedi: ${uploadError.message}`);
+
+    const { data: publicData } = supabaseAdmin.storage.from("social-images").getPublicUrl(path);
+    const imageUrl = publicData.publicUrl;
+
+    const { error: updateError } = await supabaseAdmin
+      .from("tbmm_news")
+      .update({ generated_image_url: imageUrl, updated_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (updateError) throw new Error(`Haber görsel URL'si kaydedilemedi: ${updateError.message}`);
+
+    return NextResponse.json({ ok: true, imageUrl, width: 1080, height: 1080 });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "PNG oluşturulamadı." }, { status: 500 });
+  }
+}
