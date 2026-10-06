@@ -37,3 +37,7 @@ h2 { margin:0 0 10px; font-size:24px; letter-spacing:-.025em; } h3 { margin:8px 
 .status-badge { display:inline-block; margin-top:10px; border-radius:999px; padding:4px 8px; font-size:11px; border:1px solid #3f3f46; color:#a1a1aa; }
 .status-ready { color:#86efac; border-color:#166534; }
 .status-published { color:#93c5fd; border-color:#1d4ed8; }
+
+.news-actions { display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
+.news-actions a { color:#d4d4d8; font-size:13px; white-space:nowrap; }
+@media (max-width:800px) { .news-actions { flex-direction:row; align-items:flex-start; flex-wrap:wrap; } }
