@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
+import { Resvg } from "@resvg/resvg-js";
+import path from "node:path";
 import { supabaseAdmin } from "../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const FONT = "DejaVu Sans";
+const FONT = "Noto Sans";
+
+const FONT_FILES = [
+  path.join(process.cwd(), "node_modules/@fontsource/noto-sans/files/noto-sans-latin-400-normal.woff2"),
+  path.join(process.cwd(), "node_modules/@fontsource/noto-sans/files/noto-sans-latin-700-normal.woff2"),
+  path.join(process.cwd(), "node_modules/@fontsource/noto-sans/files/noto-sans-latin-ext-400-normal.woff2"),
+  path.join(process.cwd(), "node_modules/@fontsource/noto-sans/files/noto-sans-latin-ext-700-normal.woff2"),
+];
 
 function escapeXml(value: string) {
   return value
