@@ -60,6 +60,13 @@ async function generateWithGemini(
 ): Promise<AiResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   const sourceText = [title, summary, content].filter(Boolean).join("\n\n");
+  const usableSource = [summary, content]
+    .map((value) => cleanText(value))
+    .filter((value) => value.length >= 60 && !isBoilerplate(value));
+
+  if (!usableSource.length) {
+    throw new Error("TBMM haber içeriği alınamadı; içerik üretimi atlandı.");
+  }
 
   if (!apiKey) return fallback(title, summary, content);
 
@@ -189,12 +196,29 @@ export async function POST(request: Request) {
     }
 
     let generated = 0;
+    const generatedIds: string[] = [];
 
     for (const item of news) {
       let result: AiResult;
       try {
         result = await generateWithGemini(item.title, item.summary, item.content || "", item.category);
-      } catch {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "İçerik üretilemedi.";
+
+        if (message.includes("içeriği alınamadı")) {
+          await supabaseAdmin
+            .from("tbmm_news")
+            .update({
+              status: "failed",
+              generated_title: null,
+              generated_text: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", item.id);
+
+          continue;
+        }
+
         result = fallback(item.title, item.summary, item.content || "");
       }
       const generatedTitle = result.headline;
@@ -217,9 +241,8 @@ ${result.summary}
 
       if (updateError) throw new Error(`İçerik güncellenemedi: ${updateError.message}`);
       generated += 1;
+      generatedIds.push(item.id);
     }
-
-    const generatedIds = news.map((item) => item.id);
     let rendered = 0;
     const renderErrors: string[] = [];
 
