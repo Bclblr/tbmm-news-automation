@@ -168,15 +168,25 @@ function fallback(title: string, summary: string, content: string): AiResult {
       .map((part) => cleanText(part))
       .find((part) => part.length >= 60) || cleanText(summary);
 
+  let fallbackSummary = sourceParagraph;
+  if (fallbackSummary.length > 420) {
+    const sentences = fallbackSummary.match(/[^.!?]+[.!?]+/g) || [];
+    const complete = sentences.join(" ").trim();
+    if (complete && complete.length >= 160 && complete.length <= 420) {
+      fallbackSummary = complete;
+    } else {
+      const wordSafe = fallbackSummary.slice(0, 420).replace(/\\s+\\S*$/, "").trim();
+      fallbackSummary = wordSafe.replace(/[,;:]\\s*$/, "").trim();
+    }
+  }
+
   return {
     headline:
       cleanTitle && cleanTitle.length <= 90
         ? cleanTitle
         : "TBMM gündeminden yeni gelişme",
     summary:
-      sourceParagraph
-        ? sourceParagraph.slice(0, 420)
-        : "TBMM gündeminden güncel bir gelişme paylaşıldı.",
+      fallbackSummary || "TBMM gündeminden güncel bir gelişme paylaşıldı.",
   };
 }
 
