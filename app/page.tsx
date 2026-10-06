@@ -33,6 +33,14 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function extractGeneratedSummary(value: string | null | undefined) {
+  if (!value) return "";
+  return value
+    .replace(/^📌[^\n]*\n\n/, "")
+    .replace(/\n\n#TBMM[\s\S]*$/i, "")
+    .trim();
+}
+
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<NewsItem[]>([]);
@@ -173,25 +181,55 @@ export default function Home() {
           <p className="muted">Henüz kayıtlı haber yok. “Haberleri Kontrol Et” butonuna basarak ilk taramayı başlat.</p>
         ) : (
           <div className="news-list">
-            {items.map((item) => (
-              <article className="news-item" key={item.id}>
-                {item.image_url && <img className="news-image" src={item.image_url} alt="" />}
-                <div className="news-content">
-                  <span className="tag">{item.category}</span>
-                  <h3>{item.title}</h3>
-                  {item.summary && <p className="muted news-summary">{item.summary}</p>}
-                  <span className={`status-badge status-${item.status}`}>{item.status === "ready" ? "Yayına hazır" : item.status === "published" ? "Yayınlandı" : "Yeni"}</span>
-                  <small>{formatDate(item.published_at)} · {item.status}</small>
-                </div>
-                <div className="news-actions">
-                  <button className="mini-button" onClick={() => renderImage(item.id)} disabled={renderingId === item.id || renderingAll || item.status !== "ready"}>
-                    {renderingId === item.id ? "PNG hazırlanıyor..." : item.generated_image_url ? "PNG'yi yenile" : "1080×1080 PNG"}
-                  </button>
-                  {item.generated_image_url && <a href={item.generated_image_url} target="_blank" rel="noreferrer">Görseli aç →</a>}
-                  <a href={item.source_url} target="_blank" rel="noreferrer">TBMM'de aç →</a>
-                </div>
-              </article>
-            ))}
+            {items.map((item) => {
+              const generatedSummary = extractGeneratedSummary(item.generated_text);
+
+              return (
+                <article className="news-item" key={item.id}>
+                  {item.image_url && <img className="news-image" src={item.image_url} alt="" />}
+
+                  <div className="news-content">
+                    <span className="tag">{item.category}</span>
+                    <h3>{item.title}</h3>
+                    {item.summary && <p className="muted news-summary">{item.summary}</p>}
+
+                    <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 14, background: "rgba(98, 50, 181, 0.08)", border: "1px solid rgba(98, 50, 181, 0.16)" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.7, marginBottom: 8 }}>
+                        ÜRETİLEN SOSYAL İÇERİK
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.25, marginBottom: 8 }}>
+                        {item.generated_title || "Henüz başlık üretilmedi."}
+                      </div>
+                      <p className="muted" style={{ margin: 0, lineHeight: 1.55 }}>
+                        {generatedSummary || "Henüz metin üretilmedi."}
+                      </p>
+                    </div>
+
+                    <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 12, background: "rgba(0, 0, 0, 0.035)" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.65, marginBottom: 6 }}>
+                        BAŞLIK VE METİN NASIL HAZIRLANDI?
+                      </div>
+                      <p className="muted" style={{ margin: 0, lineHeight: 1.55 }}>
+                        Önce TBMM'nin resmî haber sayfasından başlık, haber paragrafları, tarih ve görsel alınır. Sayfadaki gereksiz metinler temizlenir. Ardından Gemini 3.7 Flash yalnızca bu kaynak içeriğine dayanarak yeni bir 45–80 karakterlik başlık ve 2–3 cümlelik 180–420 karakterlik özet üretir. Son aşamada başlık ve özet 1080×1080 Halk Locası görsel şablonuna yerleştirilir.
+                      </p>
+                    </div>
+
+                    <span className={`status-badge status-${item.status}`}>
+                      {item.status === "ready" ? "Yayına hazır" : item.status === "published" ? "Yayınlandı" : "Yeni"}
+                    </span>
+                    <small>{formatDate(item.published_at)} · {item.status}</small>
+                  </div>
+
+                  <div className="news-actions">
+                    <button className="mini-button" onClick={() => renderImage(item.id)} disabled={renderingId === item.id || renderingAll || item.status !== "ready"}>
+                      {renderingId === item.id ? "PNG hazırlanıyor..." : item.generated_image_url ? "PNG'yi yenile" : "1080×1080 PNG"}
+                    </button>
+                    {item.generated_image_url && <a href={item.generated_image_url} target="_blank" rel="noreferrer">Görseli aç →</a>}
+                    <a href={item.source_url} target="_blank" rel="noreferrer">TBMM'de aç →</a>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
@@ -202,7 +240,7 @@ export default function Home() {
           <div className="step active"><b>01</b><span>Panel</span><small>Hazır</small></div>
           <div className="step active"><b>02</b><span>TBMM veri kaynağı</span><small>Bağlandı</small></div>
           <div className="step active"><b>03</b><span>Supabase veritabanı</span><small>Bağlandı</small></div>
-          <div className="step"><b>04</b><span>İçerik motoru</span><small>Bekliyor</small></div>
+          <div className="step active"><b>04</b><span>Gemini içerik motoru</span><small>Bağlandı</small></div>
           <div className="step"><b>05</b><span>Instagram + Facebook</span><small>Bekliyor</small></div>
         </div>
       </section>
