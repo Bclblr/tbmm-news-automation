@@ -46,7 +46,13 @@ function decodeHtmlEntities(value: string) {
 
 function cleanText(value: string) {
   return decodeHtmlEntities(
-    value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
+    value
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
   );
 }
 
@@ -55,8 +61,8 @@ function getMeta(html: string, name: string) {
   const wanted = name.toLowerCase();
 
   for (const tag of tags) {
-    const nameMatch = tag.match(/(?:property|name)=["']([^"']+)["']/i);
-    const contentMatch = tag.match(/content=["']([^"']*)["']/i);
+    const nameMatch = tag.match(/(?:property|name)=[\"']([^\"']+)[\"']/i);
+    const contentMatch = tag.match(/content=[\"']([^\"']*)[\"']/i);
     if (nameMatch?.[1]?.toLowerCase() === wanted && contentMatch) {
       return decodeHtmlEntities(contentMatch[1].trim());
     }
@@ -77,22 +83,74 @@ function extractImage(html: string) {
   return getMeta(html, "og:image") ?? getMeta(html, "twitter:image");
 }
 
+function isBoilerplate(value: string) {
+  const text = cleanText(value);
+  return !text ||
+    /Türkiye Büyük Millet Meclisi Resmi İnternet Sites/i.test(text) ||
+    /^Resmi İnternet Sitesi$/i.test(text);
+}
+
+function extractJsonLdText(html: string) {
+  const scripts = Array.from(
+    html.matchAll(/<script[^>]+type=[\"']application\/ld\+json[\"'][^>]*>([\s\S]*?)<\/script>/gi),
+  );
+
+  for (const match of scripts) {
+    try {
+      const parsed = JSON.parse(decodeHtmlEntities(match[1]));
+      const candidates = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed?.["@graph"])
+          ? parsed["@graph"]
+          : [parsed];
+
+      for (const item of candidates) {
+        if (!item || typeof item !== "object") continue;
+        const articleBody =
+          typeof item.articleBody === "string" ? cleanText(item.articleBody) : "";
+        if (articleBody.length >= 60 && !isBoilerplate(articleBody)) {
+          return articleBody;
+        }
+
+        const description =
+          typeof item.description === "string" ? cleanText(item.description) : "";
+        if (description.length >= 60 && !isBoilerplate(description)) {
+          return description;
+        }
+      }
+    } catch {
+      // Ignore malformed JSON-LD and continue with HTML extraction.
+    }
+  }
+
+  return "";
+}
+
 function extractMainText(html: string) {
+  const jsonLdText = extractJsonLdText(html);
+  if (jsonLdText) return jsonLdText.slice(0, 50000);
+
   const paragraphs = Array.from(
     html.matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/gi),
   )
     .map((match) => cleanText(match[1]))
     .filter((text) =>
       text.length >= 35 &&
-      !/Türkiye Büyük Millet Meclisi Resmi İnternet Sitesi/i.test(text),
+      !isBoilerplate(text),
     );
 
   const unique = Array.from(new Set(paragraphs));
   if (unique.length) return unique.join("\n\n").slice(0, 50000);
 
-  const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i)?.[1];
-  const main = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i)?.[1];
-  return cleanText(article ?? main ?? "").slice(0, 50000);
+  const contentCandidates = [
+    ...Array.from(html.matchAll(/<(?:div|section)[^>]+(?:class|id)=[\"'][^\"']*(?:haber|news|detail|content|article|description|text)[^\"']*[\"'][^>]*>([\s\S]*?)<\/(?:div|section)>/gi)),
+    ...Array.from(html.matchAll(/<article[^>]*>([\s\S]*?)<\/article>/gi)),
+    ...Array.from(html.matchAll(/<main[^>]*>([\s\S]*?)<\/main>/gi)),
+  ]
+    .map((match) => cleanText(match[1]))
+    .filter((text) => text.length >= 60 && !isBoilerplate(text));
+
+  return (contentCandidates[0] ?? "").slice(0, 50000);
 }
 
 function simpleHash(value: string) {
@@ -107,7 +165,10 @@ async function fetchDetail(
   item: Omit<TbmmNewsItem, "content" | "summary" | "imageUrl" | "contentHash">,
 ) {
   const response = await fetch(item.url, {
-    headers: { "User-Agent": "TBMM-News-Automation/1.0" },
+    headers: {
+      "User-Agent": "TBMM-News-Automation/1.0",
+      Accept: "text/html,application/xhtml+xml",
+    },
     cache: "no-store",
   });
 
@@ -124,19 +185,27 @@ async function fetchDetail(
   const title = getMeta(html, "og:title") ?? item.title;
   const description = getMeta(html, "description") ?? getMeta(html, "og:description") ?? "";
   const extractedContent = extractMainText(html);
-  const content = extractedContent || cleanText(description);
+  const cleanedDescription = cleanText(description);
 
-  const usableDescription = cleanText(description)
-    .replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "")
-    .trim();
+  // TBMM bazı haber sayfalarında meta description yerine site adını döndürüyor.
+  // Böyle bir durumda bu değeri haber özeti olarak kabul etmiyoruz.
+  const usableDescription =
+    cleanedDescription.length >= 35 && !isBoilerplate(cleanedDescription)
+      ? cleanedDescription
+      : "";
+
+  const content =
+    extractedContent && !isBoilerplate(extractedContent)
+      ? extractedContent
+      : usableDescription;
 
   const firstParagraph =
     content
       .split(/\n\n+/)
       .map((part) => cleanText(part))
-      .find((part) => part.length >= 35) ?? "";
+      .find((part) => part.length >= 35 && !isBoilerplate(part)) ?? "";
 
-  const summary = (usableDescription.length >= 35 ? usableDescription : firstParagraph).slice(0, 500);
+  const summary = firstParagraph.slice(0, 500);
   const publishedAt = getMeta(html, "article:published_time") ?? extractDate(html);
   const imageUrl = extractImage(html);
   const contentHash = simpleHash([title, publishedAt, content, item.url].join("|"));
@@ -160,7 +229,10 @@ export async function fetchTbmmNews(): Promise<TbmmNewsItem[]> {
 
   for (const source of categoryPaths) {
     const response = await fetch(TBMM_BASE + source.path, {
-      headers: { "User-Agent": "TBMM-News-Automation/1.0" },
+      headers: {
+        "User-Agent": "TBMM-News-Automation/1.0",
+        Accept: "text/html,application/xhtml+xml",
+      },
       cache: "no-store",
     });
 
@@ -172,7 +244,7 @@ export async function fetchTbmmNews(): Promise<TbmmNewsItem[]> {
 
     const html = await response.text();
     const linkRegex =
-      /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+      /<a[^>]+href=[\"']([^\"']+)[\"'][^>]*>([\s\S]*?)<\/a>/gi;
 
     let match: RegExpExecArray | null;
 
