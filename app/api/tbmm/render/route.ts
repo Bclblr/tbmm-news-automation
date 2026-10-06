@@ -1,19 +1,12 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
-import { Resvg } from "@resvg/resvg-js";
-import path from "node:path";
 import { supabaseAdmin } from "../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const FONT = "Noto Sans";
+const FONT = "DejaVu Sans";
 
-const FONT_FILES = [
-  path.join(process.cwd(), "node_modules/@fontsource/noto-sans/files/noto-sans-latin-400-normal.woff2"),
-  path.join(process.cwd(), "node_modules/@fontsource/noto-sans/files/noto-sans-latin-700-normal.woff2"),
-  path.join(process.cwd(), "node_modules/@fontsource/noto-sans/files/noto-sans-latin-ext-400-normal.woff2"),
-  path.join(process.cwd(), "node_modules/@fontsource/noto-sans/files/noto-sans-latin-ext-700-normal.woff2"),
-];
+
 
 function escapeXml(value: string) {
   return value
@@ -168,7 +161,7 @@ export async function POST(request: Request) {
   <text x="1024" y="1048" text-anchor="end" fill="#d8d3df" font-family="${FONT}" font-size="17">${escapeXml(date)}  •  TBMM</text>
 </svg>`;
 
-    const png = new Resvg(svg, { font: { fontFiles: FONT_FILES, loadSystemFonts: false, defaultFontFamily: FONT } }).render().asPng();
+    const png = await sharp(Buffer.from(svg, "utf8")).png().toBuffer();
     const path = `tbmm/${id}.png`;
 
     const { error: uploadError } = await supabaseAdmin.storage
