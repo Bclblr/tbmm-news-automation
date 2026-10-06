@@ -4,7 +4,13 @@ import { supabaseAdmin } from "../../../../lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 function cleanText(value: string) {
-  return value.replace(/\s+/g, " ").trim();
+  return value
+    .replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "")
+    .replace(/🔎\\s*Detaylar[^\\n]*/gi, "")
+    .replace(/#TBMM[^\\n]*/gi, "")
+    .replace(/^📌[^\\n]*\\n?/i, "")
+    .replace(/\\s+/g, " ")
+    .trim();
 }
 
 function buildHeadline(title: string, summary: string, category: string) {
@@ -64,7 +70,7 @@ function buildSocialText(title: string, summary: string, category: string) {
   const cleanSummary = cleanText(summary);
 
   // Görselin alt metni doğrudan haber özetinden oluşur; genel/tekrarlayan tanıtım metni kullanılmaz.
-  const body = cleanSummary || cleanTitle || "TBMM gündeminden güncel gelişme.";
+  const body = cleanSummary || "TBMM gündeminden güncel gelişme.";
   const clipped = body.length > 420
     ? body.slice(0, 417).replace(/[,:;.!?\s]+$/, "") + "…"
     : body;
