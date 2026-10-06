@@ -66,26 +66,51 @@ export async function POST(request: Request) {
       generated += 1;
     }
 
-    let rendered = 0;
     const generatedIds = news.map((item) => item.id);
+    let rendered = 0;
+    const renderErrors: string[] = [];
 
-    for (const id of generatedIds) {
-      const renderResponse = await fetch(new URL("/api/tbmm/render", request.url), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-        cache: "no-store",
-      });
+    // Vercel Hobby'de uzun süren isteklerin zaman aşımına uğramaması için
+    // görselleri aynı anda sınırsız başlatmak yerine küçük gruplar halinde işleriz.
+    for (let i = 0; i < generatedIds.length; i += 5) {
+      const batch = generatedIds.slice(i, i + 5);
+      const results = await Promise.all(
+        batch.map(async (id) => {
+          try {
+            const renderResponse = await fetch(new URL("/api/tbmm/render", request.url), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id }),
+              cache: "no-store",
+            });
 
-      if (!renderResponse.ok) {
-        const renderData = await renderResponse.json().catch(() => ({}));
-        throw new Error(renderData.error ?? "Görsel oluşturulamadı.");
+            if (!renderResponse.ok) {
+              const renderData = await renderResponse.json().catch(() => ({}));
+              return { ok: false, error: renderData.error ?? "Görsel oluşturulamadı." };
+            }
+
+            return { ok: true };
+          } catch (error) {
+            return { ok: false, error: error instanceof Error ? error.message : "Görsel oluşturulamadı." };
+          }
+        }),
+      );
+
+      for (const result of results) {
+        if (result.ok) rendered += 1;
+        else renderErrors.push(result.error);
       }
-
-      rendered += 1;
     }
 
-    return NextResponse.json({ ok: true, generated, rendered });
+    return NextResponse.json({
+      ok: true,
+      generated,
+      rendered,
+      renderErrors: renderErrors.slice(0, 5),
+      message: renderErrors.length
+        ? `${generated} içerik hazırlandı; ${rendered} görsel oluşturuldu.`
+        : `${generated} içerik ve ${rendered} görsel hazırlandı.`,
+    });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "İçerik üretilemedi." },
