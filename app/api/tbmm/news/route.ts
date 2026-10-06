@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const { data: news, error: newsError } = await supabaseAdmin
       .from("tbmm_news")
-      .select("id, title, summary, source_url, published_at, category, image_url, status, generated_title, generated_text, created_at")
+      .select("id, title, summary, source_url, published_at, category, image_url, status, generated_title, generated_text, generated_image_url, created_at")
       .order("published_at", { ascending: false })
       .limit(50);
 
