@@ -147,7 +147,9 @@ export async function POST(request: Request) {
   <rect x="56" y="1004" width="968" height="1" fill="#ffffff" fill-opacity="0.24"/>
   <text x="56" y="1048" fill="#ffffff" font-family="${FONT}" font-size="18" font-weight="700" letter-spacing="1">HALK LOCASI</text>
   <text x="1024" y="1048" text-anchor="end" fill="#d8d3df" font-family="${FONT}" font-size="17">${escapeXml(date)}  •  TBMM</text>
-</svg>`mport pathModule from "node:path";
+</svg>`;
+
+
 import { NextResponse } from "next/server";
 import { Resvg } from "@resvg/resvg-js";
 import { supabaseAdmin } from "../../../../lib/supabase/server";
