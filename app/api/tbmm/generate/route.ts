@@ -13,8 +13,6 @@ function buildHeadline(title: string, summary: string, category: string) {
 
   if (!cleanTitleText && !cleanSummary) return "TBMM'den yeni gelişme";
 
-  // Önceliği haber özetine veriyoruz. Böylece görsel başlığı,
-  // TBMM'nin ham başlığını doğrudan kopyalamak yerine haberin ana fikrini öne çıkarır.
   const source = cleanSummary || cleanTitleText;
   const sentences = source
     .split(/(?<=[.!?])\s+/)
@@ -23,25 +21,39 @@ function buildHeadline(title: string, summary: string, category: string) {
 
   let headline = sentences[0] || source;
 
-  // Özet birden fazla cümleyse ilk cümleden haber başlığına uygun kısa bir ifade çıkar.
   headline = headline
-    .replace(/^Türkiye Büyük Millet Meclisi(?:'nde|'de)?\s*/i, "")
+    .replace(/^Türkiye Büyük Millet Meclisi(?:'nde|'de|'nin|'den)?\s*/i, "")
     .replace(/^TBMM(?:'de|'nin|'den)?\s*/i, "")
+    .replace(/^Meclis(?:'te|'de|'in|'ten)?\s*/i, "")
+    .replace(/^\(?[^)]{0,60}\)?\s*(?:açıklama yaptı|açıklamasında|ifade etti|belirtti|söyledi)[:,]?\s*/i, "")
     .replace(/\s+/g, " ")
     .trim();
 
-  if (headline.length < 24 && sentences[1]) {
-    headline = `${headline}: ${sentences[1]}`;
+  const clauses = headline
+    .split(/[,;:]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (headline.length > 78 && clauses.length > 1) {
+    headline = clauses[0];
   }
 
-  headline = headline
-    .replace(/[.!?]+$/, "")
-    .trim();
+  if (headline.length > 78) {
+    const words = headline.split(/\s+/);
+    headline = words.slice(0, 11).join(" ");
+  }
 
-  if (!headline) headline = category ? `${category} gündeminde yeni gelişme` : "Meclis gündeminde yeni gelişme";
+  headline = headline.replace(/[,:;.!?]+$/, "").trim();
 
-  if (headline.length > 90) {
-    headline = headline.slice(0, 87).replace(/[,:;.!?\s]+$/, "") + "…";
+  if (headline.length < 20 && cleanTitleText && cleanTitleText !== headline) {
+    const titleWords = cleanTitleText.replace(/\s+/g, " ").trim().split(" ");
+    headline = titleWords.slice(0, 10).join(" ");
+  }
+
+  if (!headline) headline = category ? category + " gündeminde yeni gelişme" : "Meclis gündeminde yeni gelişme";
+
+  if (headline.length > 78) {
+    headline = headline.slice(0, 75).replace(/[,:;.!?\s]+$/, "") + "…";
   }
 
   return headline;
@@ -71,7 +83,7 @@ export async function POST(request: Request) {
     const { data: news, error } = await supabaseAdmin
       .from("tbmm_news")
       .select("id, title, summary, category, status")
-      .eq("status", "new")
+      .in("status", ["new", "ready"])
       .order("published_at", { ascending: false })
       .limit(50);
 
@@ -96,7 +108,7 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", item.id)
-        .eq("status", "new");
+        .in("status", ["new", "ready"]);
 
       if (updateError) throw new Error(`İçerik güncellenemedi: ${updateError.message}`);
       generated += 1;
