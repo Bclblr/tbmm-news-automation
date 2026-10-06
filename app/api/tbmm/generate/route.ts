@@ -30,7 +30,7 @@ ${clipped}
 #TBMM #TürkiyeBüyükMilletMeclisi`;
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const { data: news, error } = await supabaseAdmin
       .from("tbmm_news")
