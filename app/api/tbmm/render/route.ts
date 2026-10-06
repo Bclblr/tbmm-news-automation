@@ -74,17 +74,22 @@ export async function POST(request: Request) {
 
     const { data: item, error } = await supabaseAdmin
       .from("tbmm_news")
-      .select("id, title, generated_title, generated_text, category, published_at, image_url")
+      .select("id, title, summary, generated_title, generated_text, category, published_at, image_url")
       .eq("id", id)
       .single();
 
     if (error || !item) return NextResponse.json({ ok: false, error: "Haber bulunamadı." }, { status: 404 });
 
-    const titleLines = wrapText(item.generated_title || item.title, 27, 4);
+    const rawHeadline = item.generated_title || item.title || "";
+    const headline = rawHeadline
+      .replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "")
+      .replace(/\s+/g, " ")
+      .trim() || "Meclis gündeminden yeni gelişme";
+    const titleLines = wrapText(headline, 27, 4);
     const longestTitleLine = Math.max(...titleLines.map((line) => line.length), 0);
     const titleSize = titleFontSize(titleLines.length, longestTitleLine);
 
-    const text = (item.generated_text || "")
+    const generatedBody = (item.generated_text || "")
       .replace(/^📌[^\n]*\n\n/, "")
       .split("\n\n")
       .filter((part: string) => !/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/i.test(part))
@@ -93,7 +98,12 @@ export async function POST(request: Request) {
       .join("\n\n")
       .trim();
 
-    const textLines = wrapText(text, 64, 3);
+    const text = (generatedBody || item.summary || "")
+      .replace(/Türkiye Büyük Millet Meclisi Resmi İnternet Sites/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const textLines = wrapText(text || "TBMM gündeminden güncel gelişme.", 64, 3);
     const date = item.published_at
       ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(item.published_at))
       : "";
