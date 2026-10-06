@@ -168,7 +168,7 @@ export async function POST(request: Request) {
   <text x="1024" y="1048" text-anchor="end" fill="#d8d3df" font-family="${FONT}" font-size="17">${escapeXml(date)}  •  TBMM</text>
 </svg>`;
 
-    const png = new Resvg(svg).render().asPng();
+    const png = new Resvg(svg, { font: { fontFiles: FONT_FILES, loadSystemFonts: false, defaultFontFamily: FONT } }).render().asPng();
     const path = `tbmm/${id}.png`;
 
     const { error: uploadError } = await supabaseAdmin.storage
