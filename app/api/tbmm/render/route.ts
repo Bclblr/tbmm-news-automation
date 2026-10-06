@@ -4,6 +4,8 @@ import { supabaseAdmin } from "../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+const FONT = "DejaVu Sans, sans-serif";
+
 function escapeXml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
@@ -35,9 +37,9 @@ function wrapText(value: string, maxChars: number, maxLines: number) {
 }
 
 function titleFontSize(lineCount: number, longestLine: number) {
-  if (lineCount >= 4 || longestLine > 27) return 47;
-  if (lineCount === 3 || longestLine > 22) return 53;
-  return 59;
+  if (lineCount >= 4 || longestLine > 27) return 46;
+  if (lineCount === 3 || longestLine > 22) return 52;
+  return 58;
 }
 
 function categoryLabel(value: string) {
@@ -83,7 +85,7 @@ export async function POST(request: Request) {
     const titleSize = titleFontSize(titleLines.length, longestTitleLine);
 
     const text = (item.generated_text || "").replace(/^📌[^\n]*\n\n/, "").split("\n\n")[0];
-    const textLines = wrapText(text, 54, 2);
+    const textLines = wrapText(text, 58, 2);
     const date = item.published_at
       ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(item.published_at))
       : "";
@@ -91,73 +93,76 @@ export async function POST(request: Request) {
     const imageData = await imageAsDataUri(item.image_url);
     const image = imageData
       ? `<image href="${imageData}" x="0" y="0" width="1080" height="1080" preserveAspectRatio="xMidYMid slice"/>`
-      : `<rect width="1080" height="1080" fill="#171717"/>`;
+      : `<rect width="1080" height="1080" fill="#15111f"/>`;
 
     const category = categoryLabel(item.category || "TBMM");
-    const categoryWidth = Math.min(390, Math.max(145, category.length * 15 + 64));
+    const categoryWidth = Math.min(390, Math.max(150, category.length * 15 + 70));
 
-    const titleStartY = 665 - Math.max(0, titleLines.length - 1) * 12;
+    const titleStartY = 665 - Math.max(0, titleLines.length - 1) * 10;
     const titleSvg = titleLines
-      .map((line, index) => `<text x="72" y="${titleStartY + index * (titleSize + 10)}">${escapeXml(line)}</text>`)
+      .map((line, index) => `<text x="72" y="${titleStartY + index * (titleSize + 8)}">${escapeXml(line)}</text>`)
       .join("");
 
-    const summaryStartY = titleStartY + titleLines.length * (titleSize + 10) + 42;
-    const dividerY = summaryStartY - 45;
+    const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 38;
+    const dividerY = summaryStartY - 38;
     const textSvg = textLines
-      .map((line, index) => `<text x="72" y="${summaryStartY + index * 32}">${escapeXml(line)}</text>`)
+      .map((line, index) => `<text x="72" y="${summaryStartY + index * 31}">${escapeXml(line)}</text>`)
       .join("");
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
   <defs>
-    <linearGradient id="hero" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#000000" stop-opacity="0.05"/>
-      <stop offset="0.42" stop-color="#000000" stop-opacity="0.12"/>
-      <stop offset="0.68" stop-color="#000000" stop-opacity="0.66"/>
-      <stop offset="1" stop-color="#000000" stop-opacity="0.97"/>
+    <linearGradient id="bottomShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#05020a" stop-opacity="0"/>
+      <stop offset="0.40" stop-color="#08040f" stop-opacity="0.10"/>
+      <stop offset="0.67" stop-color="#08040f" stop-opacity="0.74"/>
+      <stop offset="1" stop-color="#05020a" stop-opacity="0.98"/>
     </linearGradient>
-    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#6d28d9"/>
-      <stop offset="1" stop-color="#a855f7"/>
+    <linearGradient id="purple" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#c084fc"/>
     </linearGradient>
-    <filter id="shadow">
-      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.50"/>
+    <filter id="softShadow">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#000000" flood-opacity="0.65"/>
     </filter>
   </defs>
 
   ${image}
-  <rect width="1080" height="1080" fill="url(#hero)"/>
+  <rect width="1080" height="1080" fill="url(#bottomShade)"/>
 
-  <!-- Halk Locası brand -->
-  <rect x="52" y="48" width="334" height="76" rx="38" fill="#09090b" fill-opacity="0.74"/>
-  <rect x="52" y="48" width="7" height="76" rx="3.5" fill="#a855f7"/>
-  <circle cx="96" cy="86" r="20" fill="#ffffff"/>
-  <circle cx="96" cy="86" r="8" fill="#6d28d9"/>
-  <text x="132" y="96" fill="#ffffff" font-family="Arial, sans-serif" font-size="30" font-weight="800">HALK LOCASI</text>
+  <!-- top brand -->
+  <rect x="48" y="44" width="350" height="82" rx="41" fill="#09070f" fill-opacity="0.82"/>
+  <rect x="48" y="44" width="8" height="82" rx="4" fill="#a855f7"/>
+  <circle cx="100" cy="85" r="25" fill="#ffffff"/>
+  <circle cx="100" cy="85" r="10" fill="#7c3aed"/>
+  <text x="140" y="96" fill="#ffffff" font-family="${FONT}" font-size="29" font-weight="700" letter-spacing="0.5">HALK LOCASI</text>
 
-  <!-- Breaking/news marker -->
-  <circle cx="994" cy="86" r="34" fill="#ffffff" fill-opacity="0.94"/>
-  <text x="994" y="95" text-anchor="middle" fill="#18181b" font-family="Arial, sans-serif" font-size="24" font-weight="800">HL</text>
+  <!-- visual identity mark -->
+  <circle cx="994" cy="85" r="38" fill="#09070f" fill-opacity="0.78" stroke="#c084fc" stroke-width="2"/>
+  <text x="994" y="95" text-anchor="middle" fill="#ffffff" font-family="${FONT}" font-size="23" font-weight="700">HL</text>
 
-  <!-- Category -->
-  <rect x="56" y="535" width="${categoryWidth}" height="44" rx="22" fill="#a855f7"/>
-  <text x="78" y="564" fill="#ffffff" font-family="Arial, sans-serif" font-size="19" font-weight="800" letter-spacing="0.6">${escapeXml(category)}</text>
+  <!-- category -->
+  <rect x="56" y="526" width="${categoryWidth}" height="46" rx="23" fill="url(#purple)"/>
+  <text x="80" y="557" fill="#ffffff" font-family="${FONT}" font-size="18" font-weight="700" letter-spacing="0.5">${escapeXml(category)}</text>
 
-  <!-- Dynamic headline -->
-  <g filter="url(#shadow)" fill="#ffffff" font-family="Arial, sans-serif" font-weight="800" font-size="${titleSize}">${titleSvg}</g>
+  <!-- headline -->
+  <g filter="url(#softShadow)" fill="#ffffff" font-family="${FONT}" font-weight="800" font-size="${titleSize}">
+    ${titleSvg}
+  </g>
 
-  <!-- Accent -->
-  <rect x="72" y="${dividerY}" width="96" height="6" rx="3" fill="#a855f7"/>
+  <!-- accent rule -->
+  <rect x="72" y="${dividerY}" width="112" height="7" rx="3.5" fill="#c084fc"/>
 
-  <!-- Summary -->
-  <g fill="#f4f4f5" font-family="Arial, sans-serif" font-size="25" font-weight="500">${textSvg}</g>
+  <!-- summary -->
+  <g fill="#f5f3f7" font-family="${FONT}" font-size="24" font-weight="400">
+    ${textSvg}
+  </g>
 
-  <!-- Footer -->
-  <rect x="56" y="1006" width="968" height="1" fill="#ffffff" fill-opacity="0.25"/>
-  <text x="56" y="1048" fill="#ffffff" font-family="Arial, sans-serif" font-size="19" font-weight="700">HALK LOCASI</text>
-  <text x="1024" y="1048" text-anchor="end" fill="#d4d4d8" font-family="Arial, sans-serif" font-size="18">${escapeXml(date)}  •  TBMM</text>
-</svg>`
-;
+  <!-- footer -->
+  <rect x="56" y="1004" width="968" height="1" fill="#ffffff" fill-opacity="0.24"/>
+  <text x="56" y="1048" fill="#ffffff" font-family="${FONT}" font-size="18" font-weight="700" letter-spacing="1">HALK LOCASI</text>
+  <text x="1024" y="1048" text-anchor="end" fill="#d8d3df" font-family="${FONT}" font-size="17">${escapeXml(date)}  •  TBMM</text>
+</svg>`;
 
     const png = await sharp(Buffer.from(svg)).png().toBuffer();
     const path = `tbmm/${id}.png`;
