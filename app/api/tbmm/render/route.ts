@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import sharp from "sharp";
+import { Resvg } from "@resvg/resvg-js";
 import { supabaseAdmin } from "../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const FONT = "DejaVu Sans";
-
-
+const FONT = "Arial, Liberation Sans, sans-serif";
 
 function escapeXml(value: string) {
   return value
@@ -161,7 +159,12 @@ export async function POST(request: Request) {
   <text x="1024" y="1048" text-anchor="end" fill="#d8d3df" font-family="${FONT}" font-size="17">${escapeXml(date)}  •  TBMM</text>
 </svg>`;
 
-    const png = await sharp(Buffer.from(svg, "utf8")).png().toBuffer();
+    const renderer = new Resvg(svg, {
+      fitTo: { mode: "original" },
+      background: "rgba(0,0,0,0)",
+    });
+    const png = renderer.render().asPng();
+
     const path = `tbmm/${id}.png`;
 
     const { error: uploadError } = await supabaseAdmin.storage
