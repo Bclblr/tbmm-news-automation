@@ -33,6 +33,19 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (text.includes("An error occurred")) {
+      throw new Error("Sunucu isteği zaman aşımına uğradı veya Vercel isteği tamamlayamadı. İçerik üretimi küçük gruplar halinde çalışacak şekilde düzeltildi; sayfayı yenileyip tekrar deneyin.");
+    }
+    throw new Error(text.slice(0, 300) || "Sunucudan geçersiz yanıt geldi.");
+  }
+}
+
 function extractGeneratedSummary(value: string | null | undefined) {
   if (!value) return "";
   return value
@@ -52,7 +65,7 @@ export default function Home() {
 
   async function loadNews() {
     const response = await fetch("/api/tbmm/news", { cache: "no-store" });
-    const data = await response.json();
+    const data = await readJsonResponse(response);
     if (!response.ok || !data.ok) throw new Error(data.error ?? "Haberler alınamadı.");
     setItems(data.items ?? []);
     setStats(data.stats ?? emptyStats);
@@ -63,7 +76,7 @@ export default function Home() {
     setError("");
     try {
       const response = await fetch("/api/tbmm/generate", { method: "POST", cache: "no-store" });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok || !data.ok) throw new Error(data.error ?? "İçerik üretilemedi.");
       await loadNews();
     } catch (err) {
@@ -82,7 +95,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok || !data.ok) throw new Error(data.error ?? "PNG oluşturulamadı.");
       await loadNews();
     } catch (err) {
@@ -100,7 +113,7 @@ export default function Home() {
         method: "POST",
         cache: "no-store",
       });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok || !data.ok) throw new Error(data.error ?? "Görseller yenilenemedi.");
       await loadNews();
       if (data.errors?.length) {
@@ -118,7 +131,7 @@ export default function Home() {
     setError("");
     try {
       const response = await fetch("/api/tbmm/check", { cache: "no-store" });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok || !data.ok) throw new Error(data.error ?? "Haber kontrolü başarısız.");
       await loadNews();
     } catch (err) {
