@@ -221,7 +221,7 @@ export async function POST(request: Request) {
       .select("id, title, summary, content, category, status")
       .eq("status", "new")
       .order("published_at", { ascending: false })
-      .limit(50);
+      .limit(5);
 
     if (error) throw new Error(`Yeni haberler alınamadı: ${error.message}`);
 
