@@ -14,6 +14,7 @@ type NewsItem = {
   generated_title?: string | null;
   generated_text?: string | null;
   generated_image_url?: string | null;
+  published_to_instagram?: boolean;
 };
 
 type Stats = {
@@ -62,6 +63,7 @@ export default function Home() {
   const [generating, setGenerating] = useState(false);
   const [renderingId, setRenderingId] = useState<string | null>(null);
   const [renderingAll, setRenderingAll] = useState(false);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   async function loadNews() {
     const response = await fetch("/api/tbmm/news", { cache: "no-store" });
@@ -123,6 +125,37 @@ export default function Home() {
       setError(err instanceof Error ? err.message : "Görseller yenilenemedi.");
     } finally {
       setRenderingAll(false);
+    }
+  }
+
+  async function publishToInstagram(id: string, hasImage: boolean) {
+    setPublishingId(id);
+    setError("");
+    try {
+      if (!hasImage) {
+        const renderResponse = await fetch("/api/tbmm/render", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+        const renderData = await readJsonResponse(renderResponse);
+        if (!renderResponse.ok || !renderData.ok) {
+          throw new Error(renderData.error ?? "Önce görsel oluşturulamadı.");
+        }
+      }
+
+      const response = await fetch("/api/tbmm/instagram/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Instagram paylaşımı başarısız.");
+      await loadNews();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Instagram paylaşımı başarısız.");
+    } finally {
+      setPublishingId(null);
     }
   }
 
@@ -227,14 +260,17 @@ export default function Home() {
                       </p>
                     </div>
 
-                    <span className={`status-badge status-${item.status}`}>
-                      {item.status === "ready" ? "Yayına hazır" : item.status === "published" ? "Paylaşıldı" : "Yeni"}
+                    <span className={`status-badge status-${item.published_to_instagram ? "published" : item.status}`}>
+                      {item.published_to_instagram ? "Paylaşıldı" : item.status === "ready" ? "Yayına hazır" : "Yeni"}
                     </span>
-                    <small>{formatDate(item.published_at)} · {item.status === "published" ? "Instagram + Facebook" : item.status}</small>
+                    <small>{formatDate(item.published_at)} · {item.published_to_instagram ? "Instagram'da paylaşıldı" : item.status}</small>
                   </div>
 
                   <div className="news-actions">
-                    <button className="mini-button" onClick={() => renderImage(item.id)} disabled={renderingId === item.id || renderingAll || item.status !== "ready"}>
+                    <button className="mini-button" onClick={() => publishToInstagram(item.id, Boolean(item.generated_image_url))} disabled={Boolean(item.published_to_instagram) || publishingId === item.id || renderingAll || !item.generated_title || !item.generated_text}>
+                      {publishingId === item.id ? "Paylaşılıyor..." : item.published_to_instagram ? "Paylaşıldı" : "Instagram'da Paylaş"}
+                    </button>
+                    <button className="mini-button" onClick={() => renderImage(item.id)} disabled={renderingId === item.id || renderingAll || item.status !== "ready" || Boolean(item.published_to_instagram)}>
                       {renderingId === item.id ? "PNG hazırlanıyor..." : item.generated_image_url ? "PNG'yi yenile" : "1080×1080 PNG"}
                     </button>
                     {item.generated_image_url && <a href={item.generated_image_url} target="_blank" rel="noreferrer">Görseli aç →</a>}
