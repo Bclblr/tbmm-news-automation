@@ -130,10 +130,10 @@ async function runAutomation(request: Request) {
       instagram = true;
     }
 
-    const now = new Date().toISOString();
+    const publishedAt = new Date().toISOString();
     const { error: publishStateError } = await supabaseAdmin
       .from("tbmm_news")
-      .update({ status: "published", updated_at: now, publish_error: null })
+      .update({ status: "published", updated_at: publishedAt, publish_error: null })
       .eq("id", item.id);
 
     if (publishStateError) throw new Error(`Yayın durumu kaydedilemedi: ${publishStateError.message}`);
