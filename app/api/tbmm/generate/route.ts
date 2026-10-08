@@ -259,9 +259,7 @@ export async function POST(request: Request) {
         result = fallback(item.title, item.summary, item.content || "");
       }
       const generatedTitle = result.headline;
-      const generatedText = `📌 ${item.category || "TBMM"}
-
-${result.summary}
+      const generatedText = `${result.summary}
 
 #TBMM #TürkiyeBüyükMilletMeclisi`;
 
@@ -318,6 +316,7 @@ ${result.summary}
     return NextResponse.json({
       ok: true,
       generated,
+      generatedIds,
       rendered,
       renderErrors: renderErrors.slice(0, 5),
       message: renderErrors.length
