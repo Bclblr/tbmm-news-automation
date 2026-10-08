@@ -19,8 +19,56 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "id gerekli." }, { status: 400 });
     }
 
-    const token = env("META_INSTAGRAM_ACCESS_TOKEN");
-    const instagramUserId = env("META_INSTAGRAM_USER_ID");
+    const rawToken = env("META_INSTAGRAM_ACCESS_TOKEN");
+    const token = rawToken.trim();
+    const instagramUserId = env("META_INSTAGRAM_USER_ID").trim();
+
+    // Token'ın Vercel'e bozulmadan ulaştığını ve verilen Instagram kullanıcı
+    // kimliğiyle Meta tarafından kabul edildiğini medya oluşturmadan önce doğrula.
+    // Token'ın kendisi hiçbir şekilde loglanmaz veya response'a yazılmaz.
+    const tokenDiagnostics = {
+      length: token.length,
+      hadOuterWhitespace: rawToken !== token,
+      hasWhitespace: /\\s/.test(token),
+      hasQuote: token.includes('"') || token.includes("'"),
+      graphVersion: GRAPH_VERSION,
+      instagramUserId,
+    };
+
+    if (!token || tokenDiagnostics.hasWhitespace || tokenDiagnostics.hasQuote) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "META_INSTAGRAM_ACCESS_TOKEN Vercel ortamında biçimsel olarak hatalı görünüyor.",
+          diagnostics: tokenDiagnostics,
+        },
+        { status: 500 },
+      );
+    }
+
+    const validationUrl = new URL(
+      `https://graph.facebook.com/${GRAPH_VERSION}/${instagramUserId}`,
+    );
+    validationUrl.searchParams.set("fields", "id,username");
+    validationUrl.searchParams.set("access_token", token);
+
+    const validationResponse = await fetch(validationUrl, {
+      method: "GET",
+      cache: "no-store",
+    });
+    const validationData = await validationResponse.json().catch(() => ({}));
+
+    if (!validationResponse.ok || !validationData?.id) {
+      const metaError = validationData?.error?.message || "Meta erişim doğrulaması başarısız.";
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Meta token doğrulaması başarısız: ${metaError}`,
+          diagnostics: tokenDiagnostics,
+        },
+        { status: 502 },
+      );
+    }
 
     const { data: item, error } = await supabaseAdmin
       .from("tbmm_news")
