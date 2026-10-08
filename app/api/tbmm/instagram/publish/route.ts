@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v24.0";
+const GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v25.0";
 
 function env(name: string) {
   const value = process.env[name];
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     }
 
     const validationUrl = new URL(
-      `https://graph.facebook.com/${GRAPH_VERSION}/${instagramUserId}`,
+      `https://graph.instagram.com/${GRAPH_VERSION}/${instagramUserId}`,
     );
     validationUrl.searchParams.set("fields", "id,username");
     validationUrl.searchParams.set("access_token", token);
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
       "#TBMM #TürkiyeBüyükMilletMeclisi #HalkLocası",
     ].join("\n").trim();
 
-    const createUrl = `https://graph.facebook.com/${GRAPH_VERSION}/${instagramUserId}/media`;
+    const createUrl = `https://graph.instagram.com/${GRAPH_VERSION}/${instagramUserId}/media`;
     const createParams = new URLSearchParams({
       image_url: item.generated_image_url,
       caption,
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: message }, { status: 502 });
     }
 
-    const publishUrl = `https://graph.facebook.com/${GRAPH_VERSION}/${instagramUserId}/media_publish`;
+    const publishUrl = `https://graph.instagram.com/${GRAPH_VERSION}/${instagramUserId}/media_publish`;
     const publishParams = new URLSearchParams({
       creation_id: createData.id,
       access_token: token,
