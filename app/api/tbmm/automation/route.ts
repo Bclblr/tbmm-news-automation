@@ -117,6 +117,11 @@ async function runAutomation(request: Request) {
       });
     }
 
+    const render = await callInternal(request, "/api/tbmm/render", "POST", { id: item.id });
+    if (!render.response.ok || !render.data?.ok) {
+      throw new Error(render.data?.error || "Haber görseli oluşturulamadı.");
+    }
+
     let instagram = item.published_to_instagram;
 
     if (!instagram) {
