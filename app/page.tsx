@@ -8,6 +8,7 @@ type NewsItem = {
   summary: string;
   source_url: string;
   published_at: string | null;
+  instagram_published_at?: string | null;
   category: string;
   image_url?: string | null;
   status: string;
@@ -264,7 +265,7 @@ export default function Home() {
                     <span className={`status-badge status-${item.published_to_instagram ? "published" : item.status}`}>
                       {item.published_to_instagram ? "Paylaşıldı" : item.status === "ready" ? "Yayına hazır" : "Yeni"}
                     </span>
-                    <small>{formatDate(item.published_at)} · {item.published_to_instagram ? "Instagram'da paylaşıldı" : item.status}</small>
+                    <small>{formatDate(item.published_to_instagram && item.instagram_published_at ? item.instagram_published_at : item.published_at)} · {item.published_to_instagram ? "Instagram'da paylaşıldı" : item.status}</small>
                   </div>
 
                   <div className="news-actions">
