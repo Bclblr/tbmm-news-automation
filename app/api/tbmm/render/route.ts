@@ -152,13 +152,13 @@ export async function POST(request: Request) {
       .map((line, index) => `<text x="72" y="${titleStartY + index * (titleSize + 8)}">${escapeXml(line)}</text>`)
       .join("");
 
-    const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 78;
+    const summaryStartY = titleStartY + titleLines.length * (titleSize + 8) + 62;
     const summary = fitSummaryText(text || "TBMM gündeminden güncel gelişme.", summaryStartY, titleSize, titleLines.length);
     const textLines = summary.lines;
     const summaryFontSize = summary.fontSize;
     const summaryLineHeight = summary.lineHeight;
     const summaryEndY = summaryStartY + Math.max(0, textLines.length - 1) * summaryLineHeight + summaryFontSize;
-    const dividerY = titleStartY + titleLines.length * (titleSize + 8) + 22;
+    const dividerY = titleStartY + titleLines.length * (titleSize + 8) + 12;
     const panelTop = Math.max(500, dividerY - 24);
     const panelBottom = Math.min(995, summaryEndY + 34);
     const panelHeight = Math.max(120, panelBottom - panelTop);
