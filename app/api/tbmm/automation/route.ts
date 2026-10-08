@@ -103,18 +103,11 @@ async function runAutomation(request: Request) {
     }
 
     let instagram = item.published_to_instagram;
-    let facebook = item.published_to_facebook;
 
     if (!instagram) {
       const result = await callInternal(request, "/api/tbmm/instagram/publish", "POST", { id: item.id });
       if (!result.response.ok || !result.data?.ok) throw new Error(result.data?.error || "Instagram paylaşımı başarısız.");
       instagram = true;
-    }
-
-    if (!facebook) {
-      const result = await callInternal(request, "/api/tbmm/facebook/publish", "POST", { id: item.id });
-      if (!result.response.ok || !result.data?.ok) throw new Error(result.data?.error || "Facebook paylaşımı başarısız.");
-      facebook = true;
     }
 
     const now = new Date().toISOString();
@@ -133,9 +126,8 @@ async function runAutomation(request: Request) {
       generated: generate.data.generated ?? 0,
       published: true,
       instagram,
-      facebook,
       cleanup,
-      message: "Haber Instagram ve Facebook üzerinde paylaşıldı.",
+      message: "Haber Instagram üzerinde paylaşıldı; Facebook çapraz paylaşımı Meta tarafından yönetilebilir.",
     });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Otomasyon başarısız." }, { status: 500 });
