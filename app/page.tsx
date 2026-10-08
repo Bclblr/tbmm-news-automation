@@ -152,6 +152,7 @@ export default function Home() {
       const data = await readJsonResponse(response);
       if (!response.ok || !data.ok) throw new Error(data.error ?? "Instagram paylaşımı başarısız.");
       await loadNews();
+      setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Instagram paylaşımı başarısız.");
     } finally {
