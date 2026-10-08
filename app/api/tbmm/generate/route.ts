@@ -216,12 +216,15 @@ function fallback(title: string, summary: string, content: string): AiResult {
 
 export async function POST(request: Request) {
   try {
+    const url = new URL(request.url);
+    const requestedLimit = Number(url.searchParams.get("limit") || "5");
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 5) : 5;
     const { data: news, error } = await supabaseAdmin
       .from("tbmm_news")
       .select("id, title, summary, content, category, status")
       .eq("status", "new")
       .order("published_at", { ascending: false })
-      .limit(5);
+      .limit(limit);
 
     if (error) throw new Error(`Yeni haberler alınamadı: ${error.message}`);
 
