@@ -28,24 +28,16 @@ async function callInternal(request: Request, path: string, method: "GET" | "POS
 }
 
 async function cleanupOldPublished() {
-  const { data: keep, error: keepError } = await supabaseAdmin
-    .from("tbmm_news")
-    .select("id")
-    .eq("status", "published")
-    .order("published_at", { ascending: false })
-    .limit(10);
-
-  if (keepError) throw new Error(`Son 10 kayıt alınamadı: ${keepError.message}`);
-  const keepIds = (keep || []).map((row) => row.id);
-  if (!keepIds.length) return { deletedRows: 0, deletedFiles: 0 };
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   const { data: oldRows, error: oldError } = await supabaseAdmin
     .from("tbmm_news")
     .select("id")
     .eq("status", "published")
-    .not("id", "in", `(${keepIds.join(",")})`);
+    .eq("published_to_instagram", true)
+    .lt("instagram_published_at", cutoff);
 
-  if (oldError) throw new Error(`Eski kayıtlar alınamadı: ${oldError.message}`);
+  if (oldError) throw new Error(`24 saatlik eski kayıtlar alınamadı: ${oldError.message}`);
   if (!oldRows?.length) return { deletedRows: 0, deletedFiles: 0 };
 
   const oldIds = oldRows.map((row) => row.id);
@@ -57,9 +49,12 @@ async function cleanupOldPublished() {
 
   if (paths.length) await supabaseAdmin.storage.from("social-images").remove(paths);
 
-  const { error: deleteError } = await supabaseAdmin.from("tbmm_news").delete().in("id", oldIds);
-  if (deleteError) throw new Error(`Eski kayıtlar silinemedi: ${deleteError.message}`);
+  const { error: deleteError } = await supabaseAdmin
+    .from("tbmm_news")
+    .delete()
+    .in("id", oldIds);
 
+  if (deleteError) throw new Error(`24 saatlik eski kayıtlar silinemedi: ${deleteError.message}`);
   return { deletedRows: oldIds.length, deletedFiles: paths.length };
 }
 
