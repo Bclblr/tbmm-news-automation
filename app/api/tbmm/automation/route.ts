@@ -78,15 +78,13 @@ async function runAutomation(request: Request) {
     const check = await callInternal(request, "/api/tbmm/check", "GET");
     if (!check.response.ok || !check.data?.ok) throw new Error(check.data?.error || "TBMM haberleri kontrol edilemedi.");
 
-    const generate = await callInternal(request, "/api/tbmm/generate", "POST");
+    const generate = await callInternal(request, "/api/tbmm/generate?limit=1", "POST");
     if (!generate.response.ok || !generate.data?.ok) throw new Error(generate.data?.error || "İçerik üretilemedi.");
 
     const { data: item, error } = await supabaseAdmin
       .from("tbmm_news")
       .select("id, generated_image_url, published_to_instagram, published_to_facebook")
       .eq("status", "ready")
-      .not("generated_image_url", "is", null)
-      .gte("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString())
       .order("published_at", { ascending: true })
       .limit(1)
       .maybeSingle();
