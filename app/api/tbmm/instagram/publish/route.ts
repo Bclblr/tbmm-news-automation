@@ -133,6 +133,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: message }, { status: 502 });
     }
 
+    // Container'ın Instagram tarafından işlenmesini bekle.
+    let containerStatus = "";
+    let containerError = "";
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const statusParams = new URLSearchParams({ fields: "status_code,status", access_token: token });
+      const statusResponse = await fetch(
+        `https://graph.instagram.com/${GRAPH_VERSION}/${createData.id}?${statusParams.toString()}`,
+        { method: "GET", cache: "no-store" },
+      );
+      const statusData = await statusResponse.json().catch(() => ({}));
+      if (!statusResponse.ok) {
+        containerError = statusData?.error?.message || "Instagram medya durumu alınamadı.";
+        break;
+      }
+      containerStatus = statusData?.status_code || statusData?.status || "";
+      if (containerStatus === "FINISHED") break;
+      if (containerStatus === "ERROR" || containerStatus === "EXPIRED") {
+        containerError = containerStatus;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
+    if (containerStatus !== "FINISHED") {
+      const message = [
+        "Instagram medya kapsayıcısı yayınlanmaya hazır hale gelmedi.",
+        containerError ? `Meta: ${containerError}` : `Durum: ${containerStatus || "bilinmiyor"}`,
+        `Container ID: ${createData.id}`,
+      ].filter(Boolean).join(" ");
+      await supabaseAdmin.from("tbmm_news").update({
+        publish_error: message,
+        updated_at: new Date().toISOString(),
+      }).eq("id", id);
+      return NextResponse.json({ ok: false, error: message }, { status: 502 });
+    }
+
     const publishUrl = `https://graph.instagram.com/${GRAPH_VERSION}/${instagramUserId}/media_publish`;
     const publishParams = new URLSearchParams({
       creation_id: createData.id,
