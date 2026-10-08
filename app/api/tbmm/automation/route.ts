@@ -79,6 +79,8 @@ async function runAutomation(request: Request) {
     const generatedIds = Array.isArray(generate.data?.generatedIds) ? generate.data.generatedIds : [];
     const generatedId = typeof generatedIds[0] === "string" ? generatedIds[0] : null;
 
+    const cleanupBeforePublish = await cleanupOldPublished();
+
     // İlk kurulum için yalnızca bugün (Türkiye saatiyle) yayımlanan
     // daha önce hazırlanmış haberlerden oluşan geçici bir kuyruk da tüketilir.
     // Bu istisna yarından itibaren kendiliğinden devre dışı kalır.
