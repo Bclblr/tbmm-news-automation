@@ -81,12 +81,24 @@ async function runAutomation(request: Request) {
     const generate = await callInternal(request, "/api/tbmm/generate?limit=1", "POST");
     if (!generate.response.ok || !generate.data?.ok) throw new Error(generate.data?.error || "İçerik üretilemedi.");
 
+    const generatedIds = Array.isArray(generate.data?.generatedIds) ? generate.data.generatedIds : [];
+    const generatedId = typeof generatedIds[0] === "string" ? generatedIds[0] : null;
+
+    if (!generatedId) {
+      return NextResponse.json({
+        ok: true,
+        checked: check.data.fetched ?? 0,
+        generated: generate.data.generated ?? 0,
+        published: false,
+        message: "Yeni yayınlanabilir haber yok.",
+      });
+    }
+
     const { data: item, error } = await supabaseAdmin
       .from("tbmm_news")
       .select("id, generated_image_url, published_to_instagram, published_to_facebook")
+      .eq("id", generatedId)
       .eq("status", "ready")
-      .order("published_at", { ascending: true })
-      .limit(1)
       .maybeSingle();
 
     if (error) throw new Error(`Yayınlanacak haber alınamadı: ${error.message}`);
@@ -96,7 +108,7 @@ async function runAutomation(request: Request) {
         checked: check.data.fetched ?? 0,
         generated: generate.data.generated ?? 0,
         published: false,
-        message: "Yeni yayınlanabilir haber yok.",
+        message: "Yeni oluşturulan haber yayınlanabilir durumda değil.",
       });
     }
 
