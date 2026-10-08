@@ -84,22 +84,32 @@ async function runAutomation(request: Request) {
     const generatedIds = Array.isArray(generate.data?.generatedIds) ? generate.data.generatedIds : [];
     const generatedId = typeof generatedIds[0] === "string" ? generatedIds[0] : null;
 
-    if (!generatedId) {
-      return NextResponse.json({
-        ok: true,
-        checked: check.data.fetched ?? 0,
-        generated: generate.data.generated ?? 0,
-        published: false,
-        message: "Yeni yayınlanabilir haber yok.",
-      });
-    }
+    // İlk kurulum için yalnızca bugün (Türkiye saatiyle) yayımlanan
+    // daha önce hazırlanmış haberlerden oluşan geçici bir kuyruk da tüketilir.
+    // Bu istisna yarından itibaren kendiliğinden devre dışı kalır.
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
 
-    const { data: item, error } = await supabaseAdmin
+    let itemQuery = supabaseAdmin
       .from("tbmm_news")
       .select("id, generated_image_url, published_to_instagram, published_to_facebook")
-      .eq("id", generatedId)
       .eq("status", "ready")
-      .maybeSingle();
+      .eq("published_to_instagram", false);
+
+    if (generatedId) {
+      itemQuery = itemQuery.eq("id", generatedId);
+    } else {
+      itemQuery = itemQuery
+        .gte("published_at", todayStart.toISOString())
+        .lt("published_at", tomorrowStart.toISOString())
+        .order("published_at", { ascending: true })
+        .limit(1);
+    }
+
+    const { data: item, error } = await itemQuery.maybeSingle();
 
     if (error) throw new Error(`Yayınlanacak haber alınamadı: ${error.message}`);
     if (!item) {
