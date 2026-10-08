@@ -114,10 +114,18 @@ export async function POST(request: Request) {
       cache: "no-store",
     });
 
-    const createData = await createResponse.json();
+    const createData = await createResponse.json().catch(() => ({}));
 
     if (!createResponse.ok || !createData.id) {
-      const message = createData?.error?.message || "Instagram medya kapsayıcısı oluşturulamadı.";
+      const metaError = createData?.error?.message;
+      const metaCode = createData?.error?.code;
+      const metaType = createData?.error?.type;
+      const message = [
+        "Instagram medya kapsayıcısı oluşturulamadı.",
+        metaError ? `Meta: ${metaError}` : "",
+        metaCode ? `Kod: ${metaCode}` : "",
+        metaType ? `Tip: ${metaType}` : "",
+      ].filter(Boolean).join(" ");
       await supabaseAdmin
         .from("tbmm_news")
         .update({ publish_error: message, updated_at: new Date().toISOString() })
@@ -138,10 +146,19 @@ export async function POST(request: Request) {
       cache: "no-store",
     });
 
-    const publishData = await publishResponse.json();
+    const publishData = await publishResponse.json().catch(() => ({}));
 
     if (!publishResponse.ok || !publishData.id) {
-      const message = publishData?.error?.message || "Instagram gönderisi yayınlanamadı.";
+      const metaError = publishData?.error?.message;
+      const metaCode = publishData?.error?.code;
+      const metaType = publishData?.error?.type;
+      const message = [
+        "Instagram medya kapsayıcısı oluşturuldu ancak gönderi yayınlanamadı.",
+        metaError ? `Meta: ${metaError}` : "",
+        metaCode ? `Kod: ${metaCode}` : "",
+        metaType ? `Tip: ${metaType}` : "",
+        createData?.id ? `Container ID: ${createData.id}` : "",
+      ].filter(Boolean).join(" ");
       await supabaseAdmin
         .from("tbmm_news")
         .update({ publish_error: message, updated_at: new Date().toISOString() })
@@ -167,6 +184,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       mediaId: publishData.id,
+      containerId: createData.id,
       publishedAt: now,
     });
   } catch (error) {
